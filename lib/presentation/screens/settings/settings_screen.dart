@@ -1,0 +1,311 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../services/export_import_service.dart';
+import '../../providers/batch_provider.dart';
+import '../../providers/recipe_provider.dart';
+import '../recipe/recipe_list_screen.dart';
+import '../label/label_template_list_screen.dart';
+import 'batch_card_settings_screen.dart'; // <-- Добавлен импорт экрана настроек карточек
+import '../../../data/datasources/database_service.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _notificationsEnabled = true;
+  bool _calendarSyncEnabled = true;
+  String _selectedLanguage = 'Русский';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Настройки'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        children: [
+          // Раздел: Основные настройки
+          _buildSectionHeader('Основные'),
+          ListTile(
+            leading: const Icon(Icons.language_outlined, color: Colors.amber),
+            title: const Text('Язык интерфейса'),
+            subtitle: Text(_selectedLanguage),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _showLanguageDialog(context),
+          ),
+          // ✅ Новая кнопка настройки внешнего вида карточек
+          ListTile(
+            leading: const Icon(Icons.style_outlined, color: Colors.amber),
+            title: const Text('Вид карточек партий'),
+            subtitle: const Text('Выбор отображаемых полей на главном экране'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const BatchCardSettingsScreen(),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.menu_book_outlined, color: Colors.amber),
+            title: const Text('Рецепты'),
+            subtitle: const Text('Просмотр и редактирование базовых рецептов'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const RecipeListScreen(),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.qr_code_2_outlined, color: Colors.amber),
+            title: const Text('Макеты наклеек'),
+            subtitle: const Text('Управление шаблонами и дизайном этикеток'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const LabelTemplateListScreen(),
+                ),
+              );
+            },
+          ),
+
+          const Divider(),
+
+          // Раздел: Напоминания
+          _buildSectionHeader('Напоминания и Календарь'),
+          SwitchListTile(
+            secondary: const Icon(Icons.notifications_active_outlined, color: Colors.amber),
+            title: const Text('Push-уведомления'),
+            subtitle: const Text('Напоминать о наступлении следующих этапов'),
+            value: _notificationsEnabled,
+            activeThumbColor: Colors.amber,
+            onChanged: (val) {
+              setState(() {
+                _notificationsEnabled = val;
+              });
+            },
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.calendar_today_outlined, color: Colors.amber),
+            title: const Text('Синхронизация с Календарем'),
+            subtitle: const Text('Добавлять события в системный календарь'),
+            value: _calendarSyncEnabled,
+            activeThumbColor: Colors.amber,
+            onChanged: (val) {
+              setState(() {
+                _calendarSyncEnabled = val;
+              });
+            },
+          ),
+
+          const Divider(),
+
+          // Раздел: Данные и База данных
+          _buildSectionHeader('Управление данными'),
+          ListTile(
+            leading: const Icon(Icons.refresh, color: Colors.blue),
+            title: const Text('Перезагрузить все данные'),
+            subtitle: const Text('Обновить список партий и рецептов из базы'),
+            onTap: () async {
+              final batchProvider = context.read<BatchProvider>();
+              final recipeProvider = context.read<RecipeProvider>();
+
+              await batchProvider.loadBatches();
+              await recipeProvider.loadRecipes();
+
+              if (!mounted) return;
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Данные успешно обновлены')),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.download_outlined, color: Colors.green),
+            title: const Text('Экспорт данных (Бэкап)'),
+            subtitle: const Text('Сохранить все партии, историю и рецепты в файл'),
+            onTap: () async {
+              try {
+                await ExportImportService().exportFullBackup();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Экспорт бэкапа завершён')),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Ошибка экспорта: $e')),
+                );
+              }
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.upload_outlined, color: Colors.orange),
+            title: const Text('Импорт данных (Восстановление)'),
+            subtitle: const Text('Восстановить резервную копию из файла .ciderbak'),
+            onTap: () async {
+              try {
+                final success = await ExportImportService().importFullBackup();
+                if (success && mounted) {
+                  await context.read<BatchProvider>().loadBatches();
+                  await context.read<RecipeProvider>().loadRecipes();
+                  
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Данные успешно восстановлены')),
+                  );
+                }
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Ошибка импорта: $e')),
+                );
+              }
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_forever_outlined, color: Colors.red),
+            title: const Text('Очистить базу данных'),
+            subtitle: const Text('Удалить все созданные партии и историю'),
+            onTap: () => _showClearDataDialog(context),
+          ),
+
+          const Divider(),
+
+          // Раздел: О приложении
+          _buildSectionHeader('О приложении'),
+          const ListTile(
+            leading: Icon(Icons.local_drink_outlined, color: Colors.amber),
+            title: Text('CiderOff'),
+            subtitle: Text('Версия 1.0.0 (Build 1)'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.info_outline, color: Colors.grey),
+            title: const Text('Помощь и поддержка'),
+            subtitle: const Text('Руководство по изготовлению сидра'),
+            onTap: () {
+              showAboutDialog(
+                context: context,
+                applicationName: 'CiderOff',
+                applicationVersion: '1.0.0',
+                applicationIcon: const Icon(Icons.local_drink, size: 40, color: Colors.amber),
+                children: [
+                  const SizedBox(height: 12),
+                  const Text('Приложение для контроля процесса брожения, замеров сахара, алкоголя и печати этикеток.'),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: Colors.amber.shade900,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return SimpleDialog(
+          title: const Text('Выберите язык'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () {
+                setState(() {
+                  _selectedLanguage = 'Русский';
+                });
+                Navigator.pop(dialogContext);
+              },
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('Русский', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                setState(() {
+                  _selectedLanguage = 'English';
+                });
+                Navigator.pop(dialogContext);
+              },
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('English', style: TextStyle(fontSize: 16)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showClearDataDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Очистить все данные?'),
+          content: const Text(
+            'Вы уверены, что хотите удалить все сохраненные партии и историю замеров? Это действие нельзя отменить.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final batchProvider = context.read<BatchProvider>();
+                final recipeProvider = context.read<RecipeProvider>();
+
+                await DatabaseService.instance.clearAllData();
+                
+                await batchProvider.loadBatches();
+                await recipeProvider.loadRecipes();
+
+                if (!mounted) return;
+
+                Navigator.pop(dialogContext);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('База данных успешно очищена')),
+                );
+              },
+              child: const Text('Удалить всё'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

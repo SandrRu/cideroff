@@ -1,0 +1,17 @@
+project_name: cider_off
+framework: flutter
+architecture: provider_clean
+
+paths:
+  models: lib/data/models
+  providers: lib/presentation/providers
+  screens: lib/presentation/screens
+  utils: lib/core/utils
+  datasources: lib/data/datasources
+  services: lib/services
+
+rules:
+  - Always check database_service.dart when adding fields to Batch or Recipe models.
+  - Use HydrometryCalculator for any alcohol or sugar recalculations.
+  - Ensure mounted check when using BuildContext across async gaps in screens.
+  - Remember that AS-3 hydrometer factor is 0.47 for sugar-to-alcohol conversion.
