@@ -20,10 +20,14 @@ class RecipeListScreen extends StatelessWidget {
             icon: const Icon(Icons.file_download_outlined),
             tooltip: 'Импорт рецепта',
             onPressed: () async {
+              final recipeProvider = context.read<RecipeProvider>();
+              final messenger = ScaffoldMessenger.of(context);
+
               final recipe = await ExportImportService().importRecipe();
+              
               if (recipe != null && context.mounted) {
-                context.read<RecipeProvider>().loadRecipes();
-                ScaffoldMessenger.of(context).showSnackBar(
+                await recipeProvider.loadRecipes();
+                messenger.showSnackBar(
                   SnackBar(content: Text('Рецепт "${recipe.getTitle(langCode)}" импортирован')),
                 );
               }
@@ -66,11 +70,12 @@ class RecipeListScreen extends StatelessWidget {
                             ),
                             PopupMenuButton<String>(
                               onSelected: (value) async {
+                                final navigator = Navigator.of(context);
+                                
                                 if (value == 'export') {
                                   await ExportImportService().exportRecipe(recipe);
                                 } else if (value == 'edit') {
-                                  Navigator.push(
-                                    context,
+                                  navigator.push(
                                     MaterialPageRoute(
                                       builder: (_) => RecipeEditorScreen(recipe: recipe),
                                     ),

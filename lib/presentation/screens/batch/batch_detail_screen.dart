@@ -32,6 +32,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
 
   double? _calculatedAbv;
   DateTime _selectedStepDate = DateTime.now();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -568,35 +569,55 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                             backgroundColor: Colors.amber,
                             foregroundColor: Colors.black,
                           ),
-                          onPressed: () async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            final baseSugar = double.tryParse(_sugarController.text);
-                            final primingGrams = double.tryParse(_primingSugarController.text);
-                            
-                            final sugarWithPriming = (baseSugar != null && primingGrams != null)
-                                ? baseSugar + (primingGrams / 10.0)
-                                : null;
+                          onPressed: _isSubmitting
+                              ? null
+                              : () async {
+                                  setState(() {
+                                    _isSubmitting = true;
+                                  });
 
-                            await batchProvider.completeCurrentStep(
-                              batch: batch,
-                              recipe: currentRecipe,
-                              sugarMeasured: baseSugar,
-                              alcoholMeasured: double.tryParse(_alcoholController.text),
-                              note: _noteController.text,
-                              containerType: _containerTypeController.text,
-                              containerCount: int.tryParse(_containerCountController.text),
-                              stepDate: _selectedStepDate,
-                              primingSugarGrams: primingGrams,
-                              finalSugarWithPriming: sugarWithPriming,
-                            );
+                                  final messenger = ScaffoldMessenger.of(context);
+                                  final baseSugar = double.tryParse(_sugarController.text);
+                                  final primingGrams = double.tryParse(_primingSugarController.text);
 
-                            if (mounted) {
-                              messenger.showSnackBar(
-                                const SnackBar(content: Text('Шаг успешно завершён')),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.check_circle_outline),
+                                  final sugarWithPriming = (baseSugar != null && primingGrams != null)
+                                      ? baseSugar + (primingGrams / 10.0)
+                                      : null;
+
+                                  try {
+                                    await batchProvider.completeCurrentStep(
+                                      batch: batch,
+                                      recipe: currentRecipe,
+                                      sugarMeasured: baseSugar,
+                                      alcoholMeasured: double.tryParse(_alcoholController.text),
+                                      note: _noteController.text,
+                                      containerType: _containerTypeController.text,
+                                      containerCount: int.tryParse(_containerCountController.text),
+                                      stepDate: _selectedStepDate,
+                                      primingSugarGrams: primingGrams,
+                                      finalSugarWithPriming: sugarWithPriming,
+                                    );
+
+                                    if (mounted) {
+                                      messenger.showSnackBar(
+                                        const SnackBar(content: Text('Шаг успешно завершён')),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() {
+                                        _isSubmitting = false;
+                                      });
+                                    }
+                                  }
+                                },
+                          icon: _isSubmitting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                )
+                              : const Icon(Icons.check_circle_outline),
                           label: Text(currentStep.isBottlingStep
                               ? 'Завершить и разлить'
                               : 'Шаг выполнен / Далее'),

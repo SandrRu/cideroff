@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart' hide Batch;
 import '../models/batch_model.dart';
@@ -24,7 +25,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 3, // Поднимаем версию БД до 3 для декстрозы
+      version: 3, // Версия структуры базы данных
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON;');
       },
@@ -41,7 +42,7 @@ class DatabaseService {
     const integerType = 'INTEGER NOT NULL';
     const integerNullable = 'INTEGER';
 
-    // 1. Таблица Партий (С полями Сидра, Кальвадоса и Декстрозы)
+    // 1. Таблица Партий
     await db.execute('''
       CREATE TABLE batches (
         id $textType PRIMARY KEY,
@@ -126,7 +127,6 @@ class DatabaseService {
     }
 
     if (oldVersion < 3) {
-      // Добавляем новые колонки для декстрозы и сахара после карбонизации
       await db.execute("ALTER TABLE batches ADD COLUMN primingSugarGrams REAL");
       await db.execute("ALTER TABLE batches ADD COLUMN finalSugarWithPriming REAL");
     }
@@ -142,14 +142,28 @@ class DatabaseService {
   Future<List<Batch>> getAllBatches() async {
     final db = await instance.database;
     final result = await db.query('batches', orderBy: 'pressDate DESC');
-    return result.map((json) => Batch.fromJson(json)).toList();
+    
+    final List<Batch> batches = [];
+    for (final json in result) {
+      try {
+        batches.add(Batch.fromJson(json));
+      } catch (e, stack) {
+        debugPrint('Ошибка парсинга партии ID ${json['id']}: $e');
+        debugPrint(stack.toString());
+      }
+    }
+    return batches;
   }
 
   Future<Batch?> getBatchById(String id) async {
     final db = await instance.database;
     final maps = await db.query('batches', where: 'id = ?', whereArgs: [id]);
     if (maps.isNotEmpty) {
-      return Batch.fromJson(maps.first);
+      try {
+        return Batch.fromJson(maps.first);
+      } catch (e) {
+        debugPrint('Ошибка парсинга партии по ID $id: $e');
+      }
     }
     return null;
   }
@@ -206,13 +220,23 @@ class DatabaseService {
     final result = await db.query('recipes');
     return result.map((map) {
       final mutable = Map<String, dynamic>.from(map);
-      mutable['title'] = jsonDecode(mutable['title'] as String);
-      mutable['description'] = mutable['description'] != null
-          ? jsonDecode(mutable['description'] as String)
-          : {};
+      
+      if (mutable['title'] is String) {
+        mutable['title'] = jsonDecode(mutable['title'] as String);
+      }
+      if (mutable['description'] is String) {
+        mutable['description'] = jsonDecode(mutable['description'] as String);
+      } else if (mutable['description'] == null) {
+        mutable['description'] = {};
+      }
+      
       mutable['isCustom'] = (mutable['isCustom'] as int) == 1;
       mutable['isFavorite'] = (mutable['isFavorite'] as int) == 1;
-      mutable['steps'] = jsonDecode(mutable['steps'] as String);
+      
+      if (mutable['steps'] is String) {
+        mutable['steps'] = jsonDecode(mutable['steps'] as String);
+      }
+      
       return Recipe.fromJson(mutable);
     }).toList();
   }
@@ -237,6 +261,15 @@ class DatabaseService {
       template.toJson(),
       where: 'id = ?',
       whereArgs: [template.id],
+    );
+  }
+
+  Future<int> deleteLabelTemplate(String id) async {
+    final db = await instance.database;
+    return await db.delete(
+      'label_templates',
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 

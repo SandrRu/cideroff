@@ -23,10 +23,18 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    Future.microtask(() {
-      context.read<BatchProvider>().loadBatches();
-      context.read<RecipeProvider>().loadRecipes();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<BatchProvider>().loadBatches();
+        context.read<RecipeProvider>().loadRecipes();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -122,34 +130,7 @@ class _BatchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd.MM.yyyy');
     final isCalvados = batch.type == BatchType.calvados;
-    final settings = context.watch<AppSettingsProvider>().cardSettings;
-
-    // Достаем название шага из заметок партии или из рецепта
-    final recipeProvider = context.watch<RecipeProvider>();
-    String stepTitle = 'Ожидание следующего этапа';
-
-    // 1. Сначала проверяем поле заметок/текущего этапа в партии
-    if (batch.notes.trim().isNotEmpty) {
-      stepTitle = batch.notes.trim();
-    } 
-    // 2. Если заметок нет, ищем этап в рецепте
-    else if (batch.currentRecipeId != null) {
-      final recipeIndex = recipeProvider.recipes.indexWhere((r) => r.id == batch.currentRecipeId);
-      if (recipeIndex != -1) {
-        final recipe = recipeProvider.recipes[recipeIndex];
-        final stepIdx = batch.currentStepIndex ?? 0;
-        if (stepIdx < recipe.steps.length) {
-          final step = recipe.steps[stepIdx];
-          final dynamic titleData = step.title;
-
-          if (titleData is Map) {
-            stepTitle = titleData['ru'] ?? titleData['en'] ?? titleData.values.firstWhere((v) => v != null, orElse: () => stepTitle);
-          } else if (titleData is String && titleData.isNotEmpty) {
-            stepTitle = titleData;
-          }
-        }
-      }
-    }
+    final settings = context.select((AppSettingsProvider p) => p.cardSettings);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -276,11 +257,43 @@ class _BatchCard extends StatelessWidget {
                         style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                       ),
                       Expanded(
-                        child: Text(
-                          stepTitle,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        child: Selector<RecipeProvider, String>(
+                          selector: (_, recipeProvider) {
+                            if (batch.notes.trim().isNotEmpty) {
+                              return batch.notes.trim();
+                            }
+                            if (batch.currentRecipeId != null) {
+                              final recipeIndex = recipeProvider.recipes
+                                  .indexWhere((r) => r.id == batch.currentRecipeId);
+                              if (recipeIndex != -1) {
+                                final recipe = recipeProvider.recipes[recipeIndex];
+                                final stepIdx = batch.currentStepIndex ?? 0;
+                                if (stepIdx < recipe.steps.length) {
+                                  final step = recipe.steps[stepIdx];
+                                  final dynamic titleData = step.title;
+
+                                  if (titleData is Map) {
+                                    return titleData['ru'] ??
+                                        titleData['en'] ??
+                                        titleData.values.firstWhere(
+                                            (v) => v != null,
+                                            orElse: () => 'Ожидание следующего этапа');
+                                  } else if (titleData is String && titleData.isNotEmpty) {
+                                    return titleData;
+                                  }
+                                }
+                              }
+                            }
+                            return 'Ожидание следующего этапа';
+                          },
+                          builder: (context, stepTitle, _) {
+                            return Text(
+                              stepTitle,
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            );
+                          },
                         ),
                       ),
                     ],

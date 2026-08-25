@@ -309,6 +309,8 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
   void _submit() async {
     if (_formKey.currentState!.validate()) {
       final batchProvider = context.read<BatchProvider>();
+      final navigator = Navigator.of(context);
+      final messenger = ScaffoldMessenger.of(context);
 
       await batchProvider.createBatch(
         name: _nameController.text.trim(),
@@ -325,8 +327,8 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
       );
 
       if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
+        navigator.pop();
+        messenger.showSnackBar(
           const SnackBar(content: Text('Партия успешно создана')),
         );
       }
