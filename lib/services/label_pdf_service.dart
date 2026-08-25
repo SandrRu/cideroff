@@ -32,6 +32,10 @@ class LabelPdfService {
     final year = batch.pressDate.year;
     final formattedDate = '$day.$month.$year';
 
+    // Расчётная сладость (учитывает остаточный сахар, декстрозу и несбраживаемые сахара)
+    final calculatedSugar = batch.finalSugarWithPriming ?? batch.finalSugar ?? 0.0;
+    final sugarText = '${calculatedSugar.toStringAsFixed(1)} г/100мл';
+
     pdf.addPage(
       pw.Page(
         pageFormat: pageFormat,
@@ -76,8 +80,8 @@ class LabelPdfService {
                       style: pw.TextStyle(font: fontBold, fontSize: 7),
                     ),
                     pw.Text(
-                      'Сахар: ${batch.finalSugar ?? 0} г/100мл',
-                      style: pw.TextStyle(font: fontRegular, fontSize: 6),
+                      'Сладость: $sugarText',
+                      style: pw.TextStyle(font: fontBold, fontSize: 7),
                     ),
                   ],
                 ),

@@ -1,17 +1,26 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../../../data/models/batch_history_model.dart';
+import '../../../../data/models/batch_model.dart';
 
 class FermentationChart extends StatelessWidget {
   final List<BatchHistory> historyList;
+  final Batch? batch;
 
-  const FermentationChart({super.key, required this.historyList});
+  const FermentationChart({
+    super.key,
+    required this.historyList,
+    this.batch,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Фильтруем историю, оставляя только записи с зафиксированными замерами
+    // Включаем в фильтрацию записи, у которых есть сахар, алкоголь ИЛИ внесены несбраживаемые сахара
     final filteredHistory = historyList
-        .where((h) => h.sugarMeasured != null || h.alcoholMeasured != null)
+        .where((h) =>
+            h.sugarMeasured != null ||
+            h.alcoholMeasured != null ||
+            (h.nonFermentableSugarGrams != null && h.nonFermentableSugarGrams! > 0))
         .toList()
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
@@ -19,7 +28,6 @@ class FermentationChart extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // Формируем точки для сахара и алкоголя
     final sugarSpots = <FlSpot>[];
     final alcoholSpots = <FlSpot>[];
 
@@ -27,12 +35,29 @@ class FermentationChart extends StatelessWidget {
 
     for (var i = 0; i < filteredHistory.length; i++) {
       final item = filteredHistory[i];
-      // Обись X: дни с момента первой записи
       final daysFromStart = (item.timestamp.millisecondsSinceEpoch - minTimestamp) / (1000 * 60 * 60 * 24);
 
-      if (item.sugarMeasured != null) {
-        sugarSpots.add(FlSpot(daysFromStart, item.sugarMeasured!));
+      final isBottlingOrLast = i == filteredHistory.length - 1 ||
+          item.actionName.contains('Завершение') ||
+          item.actionName.contains('розлив') ||
+          item.stepTitle.toLowerCase().contains('розлив');
+
+      // Расчет сахара с учетом несбраживаемых сахаров
+      double? effectiveSugar;
+
+      if (isBottlingOrLast && batch?.finalSugarWithPriming != null) {
+        effectiveSugar = batch!.finalSugarWithPriming!;
+      } else if (item.sugarMeasured != null) {
+        final nonFermentableAdd = (item.nonFermentableSugarGrams ?? batch?.nonFermentableSugarGrams ?? 0.0) / 10.0;
+        effectiveSugar = item.sugarMeasured! + (isBottlingOrLast ? nonFermentableAdd : 0.0);
+      } else if (item.nonFermentableSugarGrams != null && item.nonFermentableSugarGrams! > 0) {
+        effectiveSugar = (batch?.finalSugar ?? 0.0) + (item.nonFermentableSugarGrams! / 10.0);
       }
+
+      if (effectiveSugar != null) {
+        sugarSpots.add(FlSpot(daysFromStart, effectiveSugar));
+      }
+
       if (item.alcoholMeasured != null) {
         alcoholSpots.add(FlSpot(daysFromStart, item.alcoholMeasured!));
       }
@@ -110,7 +135,6 @@ class FermentationChart extends StatelessWidget {
                   ),
                   borderData: FlBorderData(show: false),
                   lineBarsData: [
-                    // Линия Сахара
                     if (sugarSpots.isNotEmpty)
                       LineChartBarData(
                         spots: sugarSpots,
@@ -124,7 +148,6 @@ class FermentationChart extends StatelessWidget {
                           color: Colors.amber.withValues(alpha: 0.15),
                         ),
                       ),
-                    // Линия Алкоголя
                     if (alcoholSpots.isNotEmpty)
                       LineChartBarData(
                         spots: alcoholSpots,

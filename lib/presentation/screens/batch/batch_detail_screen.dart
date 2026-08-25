@@ -26,6 +26,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
   final _containerTypeController = TextEditingController();
   final _containerCountController = TextEditingController();
   final _primingSugarController = TextEditingController(text: '7.0');
+  final _nonFermentableSugarController = TextEditingController(text: '0.0');
 
   final _distillateVolumeController = TextEditingController();
   final _distillateAbvController = TextEditingController();
@@ -42,6 +43,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     _containerTypeController.dispose();
     _containerCountController.dispose();
     _primingSugarController.dispose();
+    _nonFermentableSugarController.dispose();
     _distillateVolumeController.dispose();
     _distillateAbvController.dispose();
     super.dispose();
@@ -261,6 +263,13 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     final batchProvider = context.watch<BatchProvider>();
     final recipeProvider = context.watch<RecipeProvider>();
 
+    if (recipeProvider.isLoading || batchProvider.isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Партия')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final batch = batchProvider.batches.firstWhere(
       (b) => b.id == widget.batchId,
       orElse: () => Batch(
@@ -272,18 +281,32 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
       ),
     );
 
-    final currentRecipe = recipeProvider.recipes.firstWhere(
-      (r) => r.id == batch.currentRecipeId,
-      orElse: () => Recipe(
-        title: {'ru': 'Стандартный'},
-        description: {'ru': ''},
-        steps: [],
-      ),
+    // Умный поиск рецепта с многоуровневым фоллбэком
+    Recipe? currentRecipe;
+    if (batch.currentRecipeId != null && recipeProvider.recipes.isNotEmpty) {
+      final matches = recipeProvider.recipes.where((r) => r.id == batch.currentRecipeId).toList();
+      if (matches.isNotEmpty) {
+        currentRecipe = matches.first;
+      }
+    }
+
+    currentRecipe ??= recipeProvider.recipes.firstWhere(
+      (r) {
+        final isCalvados = r.id.contains('calvados') || (r.title['ru'] ?? '').toLowerCase().contains('кальвадос');
+        return batch.type == BatchType.calvados ? isCalvados : !isCalvados;
+      },
+      orElse: () => recipeProvider.recipes.isNotEmpty
+          ? recipeProvider.recipes.first
+          : Recipe(
+              title: {'ru': 'Стандартный'},
+              description: {'ru': ''},
+              steps: [],
+            ),
     );
 
-    final currentStep = (batch.currentStepIndex != null &&
-            batch.currentStepIndex! < currentRecipe.steps.length)
-        ? currentRecipe.steps[batch.currentStepIndex!]
+    final stepIndex = batch.currentStepIndex ?? 0;
+    final currentStep = (currentRecipe.steps.isNotEmpty && stepIndex < currentRecipe.steps.length)
+        ? currentRecipe.steps[stepIndex]
         : null;
 
     final dateFormat = DateFormat('dd.MM.yyyy');
@@ -381,14 +404,15 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                       ),
                     if (batch.status == BatchStatus.completed) ...[
                       const Divider(),
-                      _infoRow('Сахар (до прайминга)', '${batch.finalSugar ?? 0} г/100мл'),
-                      if (batch.primingSugarGrams != null && batch.primingSugarGrams! > 0) ...[
+                      _infoRow('Остаточный сахар', '${batch.finalSugar ?? 0} г/100мл'),
+                      if (batch.primingSugarGrams != null && batch.primingSugarGrams! > 0)
                         _infoRow('Декстроза', '${batch.primingSugarGrams} г/л'),
-                        _infoRow(
-                          'Итоговый сахар',
-                          '${batch.finalSugarWithPriming ?? batch.finalSugar ?? 0} г/100мл',
-                        ),
-                      ],
+                      if (batch.nonFermentableSugarGrams != null && batch.nonFermentableSugarGrams! > 0)
+                        _infoRow('Несбращ. сахар', '${batch.nonFermentableSugarGrams} г/л'),
+                      _infoRow(
+                        'Расчётная сладость',
+                        '${batch.calculatedFinalSweetness?.toStringAsFixed(1) ?? batch.finalSugar ?? 0} г/100мл',
+                      ),
                       _infoRow('Крепость', '${batch.finalAlcohol ?? 0}% об.'),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
@@ -412,7 +436,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
 
             if (batch.status == BatchStatus.inProgress && currentStep != null) ...[
               Text(
-                'Шаг ${batch.currentStepIndex! + 1}: ${currentStep.getTitle('ru')}',
+                'Шаг ${(batch.currentStepIndex ?? 0) + 1}: ${currentStep.getTitle('ru')}',
                 style: Theme.of(context)
                     .textTheme
                     .titleLarge
@@ -425,205 +449,254 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
               ),
               const SizedBox(height: 12),
 
-              Card(
-                color: Colors.amber.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.timer_outlined, color: Colors.amber),
-                              const SizedBox(width: 8),
-                              Text(
-                                batch.nextStepDate != null
-                                    ? 'Планировался: ${dateFormat.format(batch.nextStepDate!)}'
-                                    : 'Без срока',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.calculate_outlined, color: Colors.amber),
-                            tooltip: 'Открыть калькулятор',
-                            onPressed: () => _showHydrometrySheet(context, batch),
-                          )
-                        ],
+              Theme(
+                data: Theme.of(context).copyWith(
+                  brightness: Brightness.light,
+                  colorScheme: Theme.of(context).colorScheme.copyWith(
+                        brightness: Brightness.light,
+                        onSurface: Colors.black87,
                       ),
-                      const SizedBox(height: 12),
-
-                      InkWell(
-                        onTap: () => _selectStepDate(context),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.amber.shade400),
-                            borderRadius: BorderRadius.circular(8),
-                            color: Colors.white,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.calendar_today, size: 18, color: Colors.amber),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'Дата выполнения: ${dateFormat.format(_selectedStepDate)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
+                  inputDecorationTheme: const InputDecorationTheme(
+                    labelStyle: TextStyle(color: Colors.black87),
+                    hintStyle: TextStyle(color: Colors.black45),
+                    helperStyle: TextStyle(color: Colors.black87),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.black38),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.amber, width: 2),
+                    ),
+                  ),
+                ),
+                child: Card(
+                  color: Colors.amber.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.timer_outlined, color: Colors.amber),
+                                const SizedBox(width: 8),
+                                Text(
+                                  batch.nextStepDate != null
+                                      ? 'Планировался: ${dateFormat.format(batch.nextStepDate!)}'
+                                      : 'Без срока',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
                                   ),
-                                ],
+                                ),
+                              ],
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.calculate_outlined, color: Colors.amber),
+                              tooltip: 'Открыть калькулятор',
+                              onPressed: () => _showHydrometrySheet(
+                                context,
+                                batch,
+                                isBottlingStep: currentStep.isBottlingStep,
                               ),
-                              const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                            ],
-                          ),
+                            )
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 12),
 
-                      if (currentStep.requiresSugarMeasurement) ...[
-                        TextField(
-                          controller: _sugarController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(
-                            labelText: 'Замер сахара (г/100мл)',
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.sync),
-                              onPressed: () => _recalculateAbv(batch),
+                        InkWell(
+                          onTap: () => _selectStepDate(context),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.amber.shade400),
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.white,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today, size: 18, color: Colors.amber),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Дата выполнения: ${dateFormat.format(_selectedStepDate)}',
+                                      style: const TextStyle(
+                                        color: Colors.black87,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                              ],
                             ),
                           ),
-                          onChanged: (_) => _recalculateAbv(batch),
                         ),
-                        const SizedBox(height: 12),
-                      ],
+                        const SizedBox(height: 16),
 
-                      if (currentStep.requiresAlcoholMeasurement) ...[
-                        TextField(
-                          controller: _alcoholController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(
-                            labelText: 'Крепость (% об.)',
-                            helperText: _calculatedAbv != null
-                                ? 'Рассчитано по начальному сахару: ${_calculatedAbv!.toStringAsFixed(1)}%'
-                                : null,
-                            border: const OutlineInputBorder(),
+                        if (currentStep.requiresSugarMeasurement) ...[
+                          TextField(
+                            controller: _sugarController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: const TextStyle(color: Colors.black87),
+                            decoration: InputDecoration(
+                              labelText: 'Замер сахара (г/100мл)',
+                              border: const OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.sync, color: Colors.amber),
+                                onPressed: () => _recalculateAbv(batch),
+                              ),
+                            ),
+                            onChanged: (_) => _recalculateAbv(batch),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
+                          const SizedBox(height: 12),
+                        ],
 
-                      if (currentStep.isBottlingStep) ...[
+                        if (currentStep.requiresAlcoholMeasurement) ...[
+                          TextField(
+                            controller: _alcoholController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: const TextStyle(color: Colors.black87),
+                            decoration: InputDecoration(
+                              labelText: 'Крепость (% об.)',
+                              helperText: _calculatedAbv != null
+                                  ? 'Рассчитано по начальному сахару: ${_calculatedAbv!.toStringAsFixed(1)}%'
+                                  : null,
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+
+                        if (currentStep.isBottlingStep) ...[
+                          TextField(
+                            controller: _primingSugarController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: const TextStyle(color: Colors.black87),
+                            decoration: const InputDecoration(
+                              labelText: 'Катализатор / Декстроза (г/л)',
+                              hintText: 'Например: 7.0',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _nonFermentableSugarController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: const TextStyle(color: Colors.black87),
+                            decoration: const InputDecoration(
+                              labelText: 'Несбраживаемые сахара (г/л)',
+                              hintText: 'Например: 15.0 (Ксилит / Эритрит)',
+                              helperText: 'Увеличивает итоговую сладость готового сидра',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _containerTypeController,
+                            style: const TextStyle(color: Colors.black87),
+                            decoration: const InputDecoration(
+                              labelText: 'Тип тары (Бугель, Стекло, ПЭТ, Бочка)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _containerCountController,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(color: Colors.black87),
+                            decoration: const InputDecoration(
+                              labelText: 'Количество емкостей (шт.)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+
                         TextField(
-                          controller: _primingSugarController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          controller: _noteController,
+                          maxLines: 2,
+                          style: const TextStyle(color: Colors.black87),
                           decoration: const InputDecoration(
-                            labelText: 'Катализатор / Декстроза (г/л)',
-                            hintText: 'Например: 7.0',
+                            labelText: 'Заметка к этапу',
                             border: OutlineInputBorder(),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _containerTypeController,
-                          decoration: const InputDecoration(
-                            labelText: 'Тип тары (Бугель, Стекло, ПЭТ, Бочка)',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _containerCountController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Количество емкостей (шт.)',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
+                        const SizedBox(height: 16),
 
-                      TextField(
-                        controller: _noteController,
-                        maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'Заметка к этапу',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.amber,
+                              foregroundColor: Colors.black,
+                            ),
+                            onPressed: _isSubmitting
+                                ? null
+                                : () async {
+                                    setState(() {
+                                      _isSubmitting = true;
+                                    });
 
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.amber,
-                            foregroundColor: Colors.black,
-                          ),
-                          onPressed: _isSubmitting
-                              ? null
-                              : () async {
-                                  setState(() {
-                                    _isSubmitting = true;
-                                  });
+                                    final messenger = ScaffoldMessenger.of(context);
+                                    final baseSugar = double.tryParse(_sugarController.text);
+                                    final primingGrams = double.tryParse(_primingSugarController.text) ?? 0.0;
+                                    final nonFermentableGrams = double.tryParse(_nonFermentableSugarController.text) ?? 0.0;
 
-                                  final messenger = ScaffoldMessenger.of(context);
-                                  final baseSugar = double.tryParse(_sugarController.text);
-                                  final primingGrams = double.tryParse(_primingSugarController.text);
+                                    // Используем единую логику расчета сладости (г/л переводим в г/100мл делением на 10)
+                                    final finalSweetness = (baseSugar != null)
+                                        ? baseSugar + (nonFermentableGrams / 10.0)
+                                        : null;
 
-                                  final sugarWithPriming = (baseSugar != null && primingGrams != null)
-                                      ? baseSugar + (primingGrams / 10.0)
-                                      : null;
-
-                                  try {
-                                    await batchProvider.completeCurrentStep(
-                                      batch: batch,
-                                      recipe: currentRecipe,
-                                      sugarMeasured: baseSugar,
-                                      alcoholMeasured: double.tryParse(_alcoholController.text),
-                                      note: _noteController.text,
-                                      containerType: _containerTypeController.text,
-                                      containerCount: int.tryParse(_containerCountController.text),
-                                      stepDate: _selectedStepDate,
-                                      primingSugarGrams: primingGrams,
-                                      finalSugarWithPriming: sugarWithPriming,
-                                    );
-
-                                    if (mounted) {
-                                      messenger.showSnackBar(
-                                        const SnackBar(content: Text('Шаг успешно завершён')),
+                                    try {
+                                      await batchProvider.completeCurrentStep(
+                                        batch: batch,
+                                        recipe: currentRecipe!,
+                                        sugarMeasured: baseSugar,
+                                        alcoholMeasured: double.tryParse(_alcoholController.text),
+                                        note: _noteController.text,
+                                        containerType: _containerTypeController.text,
+                                        containerCount: int.tryParse(_containerCountController.text),
+                                        stepDate: _selectedStepDate,
+                                        primingSugarGrams: primingGrams,
+                                        nonFermentableSugarGrams: nonFermentableGrams,
+                                        finalSugarWithPriming: finalSweetness,
                                       );
+
+                                      if (mounted) {
+                                        messenger.showSnackBar(
+                                          const SnackBar(content: Text('Шаг успешно завершён')),
+                                        );
+                                      }
+                                    } finally {
+                                      if (mounted) {
+                                        setState(() {
+                                          _isSubmitting = false;
+                                        });
+                                      }
                                     }
-                                  } finally {
-                                    if (mounted) {
-                                      setState(() {
-                                        _isSubmitting = false;
-                                      });
-                                    }
-                                  }
-                                },
-                          icon: _isSubmitting
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                                )
-                              : const Icon(Icons.check_circle_outline),
-                          label: Text(currentStep.isBottlingStep
-                              ? 'Завершить и разлить'
-                              : 'Шаг выполнен / Далее'),
-                        ),
-                      )
-                    ],
+                                  },
+                            icon: _isSubmitting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                  )
+                                : const Icon(Icons.check_circle_outline),
+                            label: Text(currentStep.isBottlingStep
+                                ? 'Завершить и разлить'
+                                : 'Шаг выполнен / Далее'),
+                          ),
+                        )
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -634,7 +707,13 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     );
   }
 
-  void _showHydrometrySheet(BuildContext context, Batch batch) {
+  void _showHydrometrySheet(BuildContext context, Batch batch, {bool isBottlingStep = false}) {
+    final currentSugar = double.tryParse(_sugarController.text) ?? batch.initialSugar;
+    final primingGrams = double.tryParse(_primingSugarController.text) ?? 0.0;
+    final nonFermentableGrams = double.tryParse(_nonFermentableSugarController.text) ?? 0.0;
+
+    final calculatedSweetness = currentSugar + (nonFermentableGrams / 10.0);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -654,7 +733,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Быстрый гидрометр',
+                'Быстрый гидрометр & Калькулятор',
                 style: Theme.of(context)
                     .textTheme
                     .titleLarge
@@ -670,6 +749,19 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                   Navigator.pop(context);
                 },
               ),
+              if (isBottlingStep) ...[
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.scale_outlined, color: Colors.amber),
+                  title: const Text('Расчётная сладость розлива'),
+                  subtitle: Text(
+                    'Замер сахара: ${currentSugar.toStringAsFixed(1)} г/100мл\n'
+                    'Декстроза (${primingGrams} г/л) → полностью сбродит в CO₂\n'
+                    'Несбраживаемые (${nonFermentableGrams} г/л) → +${(nonFermentableGrams / 10.0).toStringAsFixed(1)} г/100мл\n'
+                    'Итоговая сладость: ${calculatedSweetness.toStringAsFixed(1)} г/100мл',
+                  ),
+                ),
+              ],
             ],
           ),
         );

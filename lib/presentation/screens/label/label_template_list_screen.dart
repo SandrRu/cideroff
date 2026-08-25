@@ -60,10 +60,20 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                       _showPrintPreviewDialog(item);
                     }
                   : null,
-              trailing: IconButton(
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: 'Редактировать',
-                onPressed: () => _showEditTemplateDialog(item),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Редактировать',
+                    onPressed: () => _showEditTemplateDialog(item),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                    tooltip: 'Удалить макет',
+                    onPressed: () => _showDeleteTemplateDialog(item),
+                  ),
+                ],
               ),
             ),
           );
@@ -89,6 +99,44 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
         ),
       );
     }
+  }
+
+  /// Диалог подтверждения удаления макета
+  void _showDeleteTemplateDialog(LabelTemplate template) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Удалить макет?'),
+        content: Text('Вы уверены, что хотите удалить макет "${template.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final dialogNav = Navigator.of(dialogContext);
+              final messenger = ScaffoldMessenger.of(context);
+
+              await DatabaseService.instance.deleteLabelTemplate(template.id);
+
+              if (mounted) {
+                dialogNav.pop();
+                _loadTemplates();
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Макет "${template.name}" удалён')),
+                );
+              }
+            },
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Диалог редактирования существующего макета
@@ -142,6 +190,8 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
             ),
             onPressed: () async {
               if (nameController.text.isNotEmpty) {
+                final dialogNav = Navigator.of(dialogContext);
+
                 final updatedTpl = LabelTemplate(
                   id: template.id,
                   name: nameController.text.trim(),
@@ -153,7 +203,7 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                 await DatabaseService.instance.updateLabelTemplate(updatedTpl);
                 
                 if (mounted) {
-                  Navigator.pop(dialogContext);
+                  dialogNav.pop();
                   _loadTemplates();
                 }
               }
@@ -215,6 +265,8 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
             ),
             onPressed: () async {
               if (nameController.text.isNotEmpty) {
+                final dialogNav = Navigator.of(dialogContext);
+
                 final tpl = LabelTemplate(
                   name: nameController.text.trim(),
                   widthMm: double.tryParse(widthController.text) ?? 58.0,
@@ -223,7 +275,7 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                 );
                 await DatabaseService.instance.insertLabelTemplate(tpl);
                 if (mounted) {
-                  Navigator.pop(dialogContext);
+                  dialogNav.pop();
                   _loadTemplates();
                 }
               }

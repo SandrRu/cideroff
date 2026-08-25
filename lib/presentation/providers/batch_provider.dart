@@ -93,9 +93,12 @@ class BatchProvider extends ChangeNotifier {
     int? containerCount,
     DateTime? stepDate,
     double? primingSugarGrams,
+    double? nonFermentableSugarGrams,
     double? finalSugarWithPriming,
   }) async {
     final currentIndex = batch.currentStepIndex ?? 0;
+    if (currentIndex >= recipe.steps.length) return;
+
     final currentStep = recipe.steps[currentIndex];
     final executionDate = stepDate ?? DateTime.now();
 
@@ -106,37 +109,38 @@ class BatchProvider extends ChangeNotifier {
       actionName: 'Шаг выполнен',
       sugarMeasured: sugarMeasured,
       alcoholMeasured: alcoholMeasured,
+      nonFermentableSugarGrams: nonFermentableSugarGrams, // <-- Передаем несбраживаемые сахара
       note: note,
     );
     await _db.insertHistory(history);
 
     final isLastStep = currentIndex >= recipe.steps.length - 1;
+    final hasNextStep = !isLastStep;
+    final nextStep = hasNextStep ? recipe.steps[currentIndex + 1] : null;
+    final nextDate = (nextStep != null)
+        ? executionDate.add(Duration(days: nextStep.durationDays))
+        : null;
 
     if (isLastStep || currentStep.isBottlingStep) {
       final updatedBatch = batch.copyWith(
         status: isLastStep ? BatchStatus.completed : BatchStatus.inProgress,
         currentStepIndex: isLastStep ? null : currentIndex + 1,
-        nextStepDate: isLastStep
-            ? null
-            : executionDate.add(Duration(days: recipe.steps[currentIndex + 1].durationDays)),
+        nextStepDate: isLastStep ? null : nextDate,
         containerType: containerType,
         containerCount: containerCount,
         finalSugar: sugarMeasured ?? batch.initialSugar,
         finalAlcohol: alcoholMeasured ?? 0.0,
         primingSugarGrams: primingSugarGrams,
+        nonFermentableSugarGrams: nonFermentableSugarGrams,
         finalSugarWithPriming: finalSugarWithPriming,
       );
       await _db.updateBatch(updatedBatch);
 
-      if (!isLastStep) {
-        final nextStep = recipe.steps[currentIndex + 1];
-        final nextDate = executionDate.add(Duration(days: nextStep.durationDays));
+      if (!isLastStep && nextStep != null && nextDate != null) {
         await _scheduleReminders(updatedBatch, nextStep, nextDate);
       }
     } else {
       final nextStepIndex = currentIndex + 1;
-      final nextStep = recipe.steps[nextStepIndex];
-      final nextDate = executionDate.add(Duration(days: nextStep.durationDays));
 
       final updatedBatch = batch.copyWith(
         currentStepIndex: nextStepIndex,
@@ -144,7 +148,9 @@ class BatchProvider extends ChangeNotifier {
       );
       await _db.updateBatch(updatedBatch);
 
-      await _scheduleReminders(updatedBatch, nextStep, nextDate);
+      if (nextStep != null && nextDate != null) {
+        await _scheduleReminders(updatedBatch, nextStep, nextDate);
+      }
     }
 
     await loadBatches();
@@ -188,6 +194,16 @@ class BatchProvider extends ChangeNotifier {
       rethrow;
     }
 
+    await loadBatches();
+  }
+
+  Future<void> updateBatchHistory(BatchHistory updatedHistory) async {
+    await _db.updateHistory(updatedHistory);
+    await loadBatches();
+  }
+
+  Future<void> deleteBatchHistory(String historyId) async {
+    await _db.deleteHistory(historyId);
     await loadBatches();
   }
 }

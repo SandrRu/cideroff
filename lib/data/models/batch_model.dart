@@ -38,8 +38,9 @@ class Batch {
   final int? containerCount;
   final double? finalSugar;
   final double? finalAlcohol;
-  final double? primingSugarGrams;     // Катализатор / Декстроза (г/л)
-  final double? finalSugarWithPriming; // Сахар после добавления декстрозы (г/100мл)
+  final double? primingSugarGrams;        // Катализатор / Декстроза (г/л)
+  final double? nonFermentableSugarGrams; // Несбраживаемые сахара (ксилит, эритрит и т.д.), г/л
+  final double? finalSugarWithPriming;    // Расчётная сладость / Итоговый сахар (г/100мл)
   final String notes;
 
   // --- Поля Кальвадоса (Дистилляция и Выдержка) ---
@@ -68,6 +69,7 @@ class Batch {
     this.finalSugar,
     this.finalAlcohol,
     this.primingSugarGrams,
+    this.nonFermentableSugarGrams,
     this.finalSugarWithPriming,
     this.notes = '',
     this.rawSpiritVolume,
@@ -112,6 +114,7 @@ class Batch {
     double? finalSugar,
     double? finalAlcohol,
     double? primingSugarGrams,
+    double? nonFermentableSugarGrams,
     double? finalSugarWithPriming,
     String? notes,
     double? rawSpiritVolume,
@@ -139,6 +142,7 @@ class Batch {
       finalSugar: finalSugar ?? this.finalSugar,
       finalAlcohol: finalAlcohol ?? this.finalAlcohol,
       primingSugarGrams: primingSugarGrams ?? this.primingSugarGrams,
+      nonFermentableSugarGrams: nonFermentableSugarGrams ?? this.nonFermentableSugarGrams,
       finalSugarWithPriming: finalSugarWithPriming ?? this.finalSugarWithPriming,
       notes: notes ?? this.notes,
       rawSpiritVolume: rawSpiritVolume ?? this.rawSpiritVolume,
@@ -168,6 +172,7 @@ class Batch {
         'finalSugar': finalSugar,
         'finalAlcohol': finalAlcohol,
         'primingSugarGrams': primingSugarGrams,
+        'nonFermentableSugarGrams': nonFermentableSugarGrams,
         'finalSugarWithPriming': finalSugarWithPriming,
         'notes': notes,
         'rawSpiritVolume': rawSpiritVolume,
@@ -180,7 +185,6 @@ class Batch {
       };
 
   factory Batch.fromJson(Map<String, dynamic> json) {
-    // Безопасный парсинг даты
     DateTime parseDate(dynamic val) {
       if (val is String && val.isNotEmpty) {
         final parsed = DateTime.tryParse(val);
@@ -213,6 +217,7 @@ class Batch {
       finalSugar: (json['finalSugar'] as num?)?.toDouble(),
       finalAlcohol: (json['finalAlcohol'] as num?)?.toDouble(),
       primingSugarGrams: (json['primingSugarGrams'] as num?)?.toDouble(),
+      nonFermentableSugarGrams: (json['nonFermentableSugarGrams'] as num?)?.toDouble(),
       finalSugarWithPriming: (json['finalSugarWithPriming'] as num?)?.toDouble(),
       notes: json['notes'] as String? ?? '',
       rawSpiritVolume: (json['rawSpiritVolume'] as num?)?.toDouble(),
@@ -223,5 +228,15 @@ class Batch {
       agingStartDate: parseNullableDate(json['agingStartDate']),
       barrelNotes: json['barrelNotes'] as String?,
     );
+  }
+
+  /// Расчётная итоговая сладость с учётом остаточного сахара и несбраживаемых сахаров
+  double? get calculatedFinalSweetness {
+    if (finalSugarWithPriming != null) return finalSugarWithPriming;
+    if (finalSugar != null) {
+      final nonFerm = nonFermentableSugarGrams ?? 0.0;
+      return finalSugar! + (nonFerm / 10.0);
+    }
+    return null;
   }
 }

@@ -25,7 +25,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 3, // Версия структуры базы данных
+      version: 5, // Подняли версию для миграции таблицы history
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON;');
       },
@@ -61,6 +61,7 @@ class DatabaseService {
         finalSugar $realNullable,
         finalAlcohol $realNullable,
         primingSugarGrams $realNullable,
+        nonFermentableSugarGrams $realNullable,
         finalSugarWithPriming $realNullable,
         notes $textNullable,
         rawSpiritVolume $realNullable,
@@ -84,6 +85,7 @@ class DatabaseService {
         actionName $textType,
         sugarMeasured $realNullable,
         alcoholMeasured $realNullable,
+        nonFermentableSugarGrams $realNullable,
         note $textNullable,
         FOREIGN KEY (batchId) REFERENCES batches (id) ON DELETE CASCADE
       )
@@ -130,6 +132,14 @@ class DatabaseService {
       await db.execute("ALTER TABLE batches ADD COLUMN primingSugarGrams REAL");
       await db.execute("ALTER TABLE batches ADD COLUMN finalSugarWithPriming REAL");
     }
+
+    if (oldVersion < 4) {
+      await db.execute("ALTER TABLE batches ADD COLUMN nonFermentableSugarGrams REAL");
+    }
+    
+    if (oldVersion < 5) {
+      await db.execute("ALTER TABLE history ADD COLUMN nonFermentableSugarGrams REAL");
+    }    
   }
 
   // --- CRUD ДЛЯ ПАРТИЙ ---
@@ -280,4 +290,26 @@ class DatabaseService {
     await db.delete('batches');
     await db.delete('recipes', where: 'isCustom = 1');
   }
+
+  // --- CRUD ДЛЯ ИСТОРИИ ---
+
+  Future<int> updateHistory(BatchHistory history) async {
+    final db = await instance.database;
+    return await db.update(
+      'history',
+      history.toJson(),
+      where: 'id = ?',
+      whereArgs: [history.id],
+    );
+  }
+
+  Future<int> deleteHistory(String id) async {
+    final db = await instance.database;
+    return await db.delete(
+      'history',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
 }

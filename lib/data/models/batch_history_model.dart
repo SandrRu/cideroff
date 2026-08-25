@@ -8,6 +8,7 @@ class BatchHistory {
   final String actionName;
   final double? sugarMeasured;
   final double? alcoholMeasured;
+  final double? nonFermentableSugarGrams; // <-- Добавлено поле
   final String? note;
 
   BatchHistory({
@@ -18,6 +19,7 @@ class BatchHistory {
     required this.actionName,
     this.sugarMeasured,
     this.alcoholMeasured,
+    this.nonFermentableSugarGrams,
     this.note,
   }) : id = id ?? const Uuid().v4();
 
@@ -29,6 +31,7 @@ class BatchHistory {
         'actionName': actionName,
         'sugarMeasured': sugarMeasured,
         'alcoholMeasured': alcoholMeasured,
+        'nonFermentableSugarGrams': nonFermentableSugarGrams,
         'note': note,
       };
 
@@ -40,6 +43,7 @@ class BatchHistory {
         actionName: json['actionName'] as String,
         sugarMeasured: (json['sugarMeasured'] as num?)?.toDouble(),
         alcoholMeasured: (json['alcoholMeasured'] as num?)?.toDouble(),
+        nonFermentableSugarGrams: (json['nonFermentableSugarGrams'] as num?)?.toDouble(),
         note: json['note'] as String?,
       );
 }

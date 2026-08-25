@@ -270,16 +270,10 @@ class _BatchCard extends StatelessWidget {
                                 final stepIdx = batch.currentStepIndex ?? 0;
                                 if (stepIdx < recipe.steps.length) {
                                   final step = recipe.steps[stepIdx];
-                                  final dynamic titleData = step.title;
-
-                                  if (titleData is Map) {
-                                    return titleData['ru'] ??
-                                        titleData['en'] ??
-                                        titleData.values.firstWhere(
-                                            (v) => v != null,
-                                            orElse: () => 'Ожидание следующего этапа');
-                                  } else if (titleData is String && titleData.isNotEmpty) {
-                                    return titleData;
+                                  // Безопасное получение названия шага через метод модели
+                                  final title = step.getTitle('ru');
+                                  if (title.isNotEmpty) {
+                                    return title;
                                   }
                                 }
                               }

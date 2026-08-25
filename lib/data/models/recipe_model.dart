@@ -104,8 +104,8 @@ class Recipe {
 
   factory Recipe.fromJson(Map<String, dynamic> json) => Recipe(
         id: json['id'] as String,
-        title: Map<String, String>.from(json['title'] as Map),
-        description: Map<String, String>.from(json['description'] as Map),
+        title: Map<String, String>.from(json['title'] ?? {}),
+        description: Map<String, String>.from(json['description'] ?? {}),
         isCustom: json['isCustom'] as bool? ?? true,
         isFavorite: json['isFavorite'] as bool? ?? false,
         steps: (json['steps'] as List)

@@ -24,10 +24,21 @@ class _CalculatorScreenState extends State<CalculatorScreen> with SingleTickerPr
   double _targetCo2 = 2.4;
   double _ciderTemp = 18.0;
 
+  // Поля Несбраживаемых сахаров / Сладости
+  double _residualSugar = 0.0; // Остаточный сахар (г/100мл)
+  double _nonFermentableGramsPerLiter = 15.0; // Несбраживаемый сахар (г/л)
+  double _sweetnessVolumeLiters = 20.0; // Объём партии (л)
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -37,10 +48,12 @@ class _CalculatorScreenState extends State<CalculatorScreen> with SingleTickerPr
         title: const Text('Калькулятор сидодела'),
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           tabs: const [
             Tab(text: 'Крепость (ABV)'),
             Tab(text: 'Подсахаривание'),
             Tab(text: 'Карбонизация'),
+            Tab(text: 'Сладость'),
           ],
         ),
       ),
@@ -50,6 +63,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> with SingleTickerPr
           _buildAbvCalculator(),
           _buildChaptalizationCalculator(),
           _buildPrimingCalculator(),
+          _buildSweetnessCalculator(),
         ],
       ),
     );
@@ -174,6 +188,72 @@ class _CalculatorScreenState extends State<CalculatorScreen> with SingleTickerPr
     );
   }
 
+  // --- 4. Калькулятор Несбраживаемых Сахаров и Итоговой Сладости ---
+  Widget _buildSweetnessCalculator() {
+    // Декстроза выгорает в CO₂ (не прибавляет сладости)
+    final finalSweetnessGrams100ml = _residualSugar + (_nonFermentableGramsPerLiter / 10.0);
+    final totalSweetenerGrams = _nonFermentableGramsPerLiter * _sweetnessVolumeLiters;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildResultCard(
+          title: 'Расчётная сладость сидра',
+          value: '${finalSweetnessGrams100ml.toStringAsFixed(1)} г/100мл',
+          subtitle: 'Всего подсластителя на весь объём (${_sweetnessVolumeLiters.toStringAsFixed(0)} л): ${totalSweetenerGrams.toStringAsFixed(0)} г',
+        ),
+        const SizedBox(height: 20),
+        Text('Остаточный сахар (замер перед розливом): ${_residualSugar.toStringAsFixed(1)} г/100мл'),
+        Slider(
+          value: _residualSugar,
+          min: 0.0,
+          max: 10.0,
+          divisions: 100,
+          onChanged: (v) => setState(() => _residualSugar = v),
+        ),
+        const SizedBox(height: 12),
+        Text('Несбраживаемые сахара (Ксилит / Эритрит): ${_nonFermentableGramsPerLiter.toStringAsFixed(1)} г/л'),
+        Slider(
+          value: _nonFermentableGramsPerLiter,
+          min: 0.0,
+          max: 50.0,
+          divisions: 100,
+          onChanged: (v) => setState(() => _nonFermentableGramsPerLiter = v),
+        ),
+        const SizedBox(height: 12),
+        Text('Объём партии: ${_sweetnessVolumeLiters.toStringAsFixed(0)} л'),
+        Slider(
+          value: _sweetnessVolumeLiters,
+          min: 1.0,
+          max: 200.0,
+          divisions: 199,
+          onChanged: (v) => setState(() => _sweetnessVolumeLiters = v),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.amber.shade200),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.amber),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Декстроза не учитывается в расчёте сладости, так как полностью сбраживается дрожжами в CO₂ при карбонизации.',
+                  style: TextStyle(fontSize: 12, color: Colors.black87),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildResultCard({required String title, required String value, required String subtitle}) {
     return Card(
       color: Colors.amber.shade100,
@@ -186,6 +266,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> with SingleTickerPr
             const SizedBox(height: 8),
             Text(
               value,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.amber.shade900,
                 fontSize: 32,
@@ -193,7 +274,11 @@ class _CalculatorScreenState extends State<CalculatorScreen> with SingleTickerPr
               ),
             ),
             const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
           ],
         ),
       ),

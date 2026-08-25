@@ -4,7 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import 'package:cider_off/presentation/providers/app_settings_provider.dart'; // <-- Импорт провайдера
+import 'package:cider_off/presentation/providers/app_settings_provider.dart';
 import 'package:cider_off/presentation/providers/batch_provider.dart';
 import 'package:cider_off/presentation/providers/recipe_provider.dart';
 import 'package:cider_off/core/utils/test_data_seeder.dart';
@@ -49,11 +49,32 @@ class CiderOffApp extends StatelessWidget {
               useMaterial3: true,
               colorSchemeSeed: Colors.amber,
               brightness: Brightness.light,
+              // Настройка контрастности полей ввода для светлой темы
+              inputDecorationTheme: const InputDecorationTheme(
+                labelStyle: TextStyle(color: Colors.black87),
+                hintStyle: TextStyle(color: Colors.black45),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.black38),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.amber, width: 2),
+                ),
+              ),
             ),
             darkTheme: ThemeData(
               useMaterial3: true,
               colorSchemeSeed: Colors.amber,
               brightness: Brightness.dark,
+              inputDecorationTheme: const InputDecorationTheme(
+                labelStyle: TextStyle(color: Colors.white70),
+                hintStyle: TextStyle(color: Colors.white38),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white38),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.amber, width: 2),
+                ),
+              ),
             ),
             themeMode: settings.themeMode,
             locale: settings.currentLocale,

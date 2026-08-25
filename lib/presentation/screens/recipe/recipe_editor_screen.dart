@@ -50,11 +50,9 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
     setState(() {
       _steps.add(newStep);
     });
-    // Сразу открываем редактирование добавленного шага
     _editStep(newStep, _steps.length - 1);
   }
 
-  /// Диалоговое окно редактирования параметров шага
   void _editStep(RecipeStep step, int index) {
     final titleController = TextEditingController(text: step.getTitle('ru'));
     final instructionController = TextEditingController(text: step.getInstruction('ru'));
@@ -227,7 +225,7 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () => _editStep(step, index), // Клик по карточке для редактирования
+                    onTap: () => _editStep(step, index),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(
@@ -290,7 +288,7 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
   void _saveRecipe() {
     if (_formKey.currentState!.validate()) {
       final newRecipe = Recipe(
-        id: widget.recipe?.id,
+        id: widget.recipe?.id, // Передаем прежний ID при обновлении рецепта
         title: {'ru': _titleRuController.text},
         description: {'ru': _descRuController.text},
         isCustom: true,
