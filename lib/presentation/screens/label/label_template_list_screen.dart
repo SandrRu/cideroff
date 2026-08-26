@@ -24,6 +24,8 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
 
   Future<void> _loadTemplates() async {
     final list = await DatabaseService.instance.getAllLabelTemplates();
+    if (!mounted) return;
+
     if (list.isEmpty) {
       final defaultTpl = LabelTemplate(
         name: 'Стандартная термоэтикетка (58×40 мм)',
@@ -32,6 +34,7 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
         schemaJson: '{}',
       );
       await DatabaseService.instance.insertLabelTemplate(defaultTpl);
+      if (!mounted) return;
       _templates = [defaultTpl];
     } else {
       _templates = list;
@@ -119,18 +122,16 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
-              final dialogNav = Navigator.of(dialogContext);
-              final messenger = ScaffoldMessenger.of(context);
+              Navigator.pop(dialogContext);
 
               await DatabaseService.instance.deleteLabelTemplate(template.id);
 
-              if (mounted) {
-                dialogNav.pop();
-                _loadTemplates();
-                messenger.showSnackBar(
-                  SnackBar(content: Text('Макет "${template.name}" удалён')),
-                );
-              }
+              if (!mounted) return;
+
+              _loadTemplates();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Макет "${template.name}" удалён')),
+              );
             },
             child: const Text('Удалить'),
           ),
@@ -190,8 +191,6 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
             ),
             onPressed: () async {
               if (nameController.text.isNotEmpty) {
-                final dialogNav = Navigator.of(dialogContext);
-
                 final updatedTpl = LabelTemplate(
                   id: template.id,
                   name: nameController.text.trim(),
@@ -200,12 +199,12 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                   schemaJson: template.schemaJson,
                 );
 
+                Navigator.pop(dialogContext);
+
                 await DatabaseService.instance.updateLabelTemplate(updatedTpl);
                 
-                if (mounted) {
-                  dialogNav.pop();
-                  _loadTemplates();
-                }
+                if (!mounted) return;
+                _loadTemplates();
               }
             },
             child: const Text('Сохранить'),
@@ -265,19 +264,19 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
             ),
             onPressed: () async {
               if (nameController.text.isNotEmpty) {
-                final dialogNav = Navigator.of(dialogContext);
-
                 final tpl = LabelTemplate(
                   name: nameController.text.trim(),
                   widthMm: double.tryParse(widthController.text) ?? 58.0,
                   heightMm: double.tryParse(heightController.text) ?? 40.0,
                   schemaJson: '{}',
                 );
+
+                Navigator.pop(dialogContext);
+
                 await DatabaseService.instance.insertLabelTemplate(tpl);
-                if (mounted) {
-                  dialogNav.pop();
-                  _loadTemplates();
-                }
+                
+                if (!mounted) return;
+                _loadTemplates();
               }
             },
             child: const Text('Сохранить'),

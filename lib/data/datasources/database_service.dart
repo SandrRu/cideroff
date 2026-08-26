@@ -25,7 +25,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 5, // Подняли версию для миграции таблицы history
+      version: 5,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON;');
       },
@@ -115,31 +115,45 @@ class DatabaseService {
     ''');
   }
 
-  /// Миграция структуры БД при обновлении версии
+  /// Безопасная миграция структуры БД при обновлении версии
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await db.execute("ALTER TABLE batches ADD COLUMN type TEXT DEFAULT 'cider'");
-      await db.execute("ALTER TABLE batches ADD COLUMN rawSpiritVolume REAL");
-      await db.execute("ALTER TABLE batches ADD COLUMN rawSpiritABV REAL");
-      await db.execute("ALTER TABLE batches ADD COLUMN distillateVolume REAL");
-      await db.execute("ALTER TABLE batches ADD COLUMN distillateABV REAL");
-      await db.execute("ALTER TABLE batches ADD COLUMN barrelDilutedABV REAL");
-      await db.execute("ALTER TABLE batches ADD COLUMN agingStartDate TEXT");
-      await db.execute("ALTER TABLE batches ADD COLUMN barrelNotes TEXT");
+      await _addColumnIfNotExists(db, 'batches', 'type', "TEXT DEFAULT 'cider'");
+      await _addColumnIfNotExists(db, 'batches', 'rawSpiritVolume', 'REAL');
+      await _addColumnIfNotExists(db, 'batches', 'rawSpiritABV', 'REAL');
+      await _addColumnIfNotExists(db, 'batches', 'distillateVolume', 'REAL');
+      await _addColumnIfNotExists(db, 'batches', 'distillateABV', 'REAL');
+      await _addColumnIfNotExists(db, 'batches', 'barrelDilutedABV', 'REAL');
+      await _addColumnIfNotExists(db, 'batches', 'agingStartDate', 'TEXT');
+      await _addColumnIfNotExists(db, 'batches', 'barrelNotes', 'TEXT');
     }
 
     if (oldVersion < 3) {
-      await db.execute("ALTER TABLE batches ADD COLUMN primingSugarGrams REAL");
-      await db.execute("ALTER TABLE batches ADD COLUMN finalSugarWithPriming REAL");
+      await _addColumnIfNotExists(db, 'batches', 'primingSugarGrams', 'REAL');
+      await _addColumnIfNotExists(db, 'batches', 'finalSugarWithPriming', 'REAL');
     }
 
     if (oldVersion < 4) {
-      await db.execute("ALTER TABLE batches ADD COLUMN nonFermentableSugarGrams REAL");
+      await _addColumnIfNotExists(db, 'batches', 'nonFermentableSugarGrams', 'REAL');
     }
     
     if (oldVersion < 5) {
-      await db.execute("ALTER TABLE history ADD COLUMN nonFermentableSugarGrams REAL");
+      await _addColumnIfNotExists(db, 'history', 'nonFermentableSugarGrams', 'REAL');
     }    
+  }
+
+  /// Проверка существования колонки перед добавлением для предотвращения Duplicate Column Error
+  Future<void> _addColumnIfNotExists(
+    Database db,
+    String table,
+    String column,
+    String typeDefinition,
+  ) async {
+    final info = await db.rawQuery('PRAGMA table_info($table)');
+    final exists = info.any((row) => row['name'] == column);
+    if (!exists) {
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $typeDefinition');
+    }
   }
 
   // --- CRUD ДЛЯ ПАРТИЙ ---
@@ -240,8 +254,9 @@ class DatabaseService {
         mutable['description'] = {};
       }
       
-      mutable['isCustom'] = (mutable['isCustom'] as int) == 1;
-      mutable['isFavorite'] = (mutable['isFavorite'] as int) == 1;
+      // Безопасное приведение числовых/булевых типов
+      mutable['isCustom'] = mutable['isCustom'] == 1 || mutable['isCustom'] == true;
+      mutable['isFavorite'] = mutable['isFavorite'] == 1 || mutable['isFavorite'] == true;
       
       if (mutable['steps'] is String) {
         mutable['steps'] = jsonDecode(mutable['steps'] as String);
@@ -311,5 +326,4 @@ class DatabaseService {
       whereArgs: [id],
     );
   }
-
 }

@@ -50,18 +50,18 @@ class HydrometryCalculator {
     return double.parse(sugarGram.toStringAsFixed(2));
   }
 
-  /// Расчет крепости ABV (%) по шкале ареометра АС-3 (массовые %)
+  /// Точный расчет крепости ABV (%) по значениям начального и конечного сахара/Brix
   static double calculateAbvFromHydrometer(double initialSugar, double finalSugar, {double factor = 0.47}) {
     if (initialSugar <= finalSugar) return 0.0;
-    final abv = (initialSugar - finalSugar) * factor;
+    final ogSg = brixToSg(initialSugar);
+    final fgSg = brixToSg(finalSugar);
+    final abv = calculateAbvFromSg(ogSg, fgSg);
     return double.parse(abv.toStringAsFixed(1));
   }
 
   // --- КАЛЬКУЛЯТОРЫ ДИСТИЛЛЯЦИИ И КАЛЬВАДОСА ---
 
   /// Расчет Абсолютного Спирта (АС) в литрах
-  /// [volumeLiters] - Объем дистиллята / спирта-сырца (л)
-  /// [abvPercent] - Крепость (% об.)
   static double calculateAbsoluteAlcohol(double volumeLiters, double abvPercent) {
     if (volumeLiters <= 0 || abvPercent <= 0) return 0.0;
     final absoluteAlcohol = volumeLiters * (abvPercent / 100.0);
@@ -69,9 +69,6 @@ class HydrometryCalculator {
   }
 
   /// Расчет объема воды (в литрах) для разбавления дистиллята до нужной крепости
-  /// [currentVolume] - Текущий объем дистиллята (л)
-  /// [currentAbv] - Текущая крепость (% об.)
-  /// [targetAbv] - Желаемая крепость (% об.)
   static double calculateWaterToDilute({
     required double currentVolume,
     required double currentAbv,
@@ -83,9 +80,6 @@ class HydrometryCalculator {
   }
 
   /// Расчет ориентировочного объема «голов» (в мл) при 2-м дробном перегоне
-  /// [volumeLiters] - Объем спирта-сырца (л)
-  /// [abvPercent] - Крепость спирта-сырца (% об.)
-  /// [headsPercentage] - Процент отбора голов от АС (по умолчанию 5%)
   static double calculateHeadsVolumeMl({
     required double volumeLiters,
     required double abvPercent,

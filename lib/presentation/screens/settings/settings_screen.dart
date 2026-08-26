@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../services/export_import_service.dart';
+import '../../../services/cloud_sync_service.dart';
+import '../../../services/google_drive_sync_service.dart'; // <-- Импортируем новый сервис
+import '../../providers/app_settings_provider.dart';
 import '../../providers/batch_provider.dart';
 import '../../providers/recipe_provider.dart';
 import '../recipe/recipe_list_screen.dart';
 import '../label/label_template_list_screen.dart';
-import 'batch_card_settings_screen.dart'; // <-- Добавлен импорт экрана настроек карточек
+import 'batch_card_settings_screen.dart';
 import '../../../data/datasources/database_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -19,10 +22,76 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
   bool _calendarSyncEnabled = true;
-  String _selectedLanguage = 'Русский';
+
+  final _webdavUrlController = TextEditingController();
+  final _webdavUsernameController = TextEditingController();
+  final _webdavPasswordController = TextEditingController();
+
+  bool _isUploading = false;
+  bool _isDownloading = false;
+
+  // Состояние синхронизации Google Drive
+  bool _isGoogleDriveUploading = false;
+  bool _isGoogleDriveDownloading = false;
+
+  @override
+  void dispose() {
+    _webdavUrlController.dispose();
+    _webdavUsernameController.dispose();
+    _webdavPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _uploadToGoogleDrive() async {
+    setState(() => _isGoogleDriveUploading = true);
+    try {
+      final success = await GoogleDriveSyncService().uploadBackup();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Резервная копия выгружена в Google Drive'
+                : 'Ошибка выгрузки в Google Drive',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isGoogleDriveUploading = false);
+    }
+  }
+
+  Future<void> _downloadFromGoogleDrive() async {
+    setState(() => _isGoogleDriveDownloading = true);
+    try {
+      final success = await GoogleDriveSyncService().downloadAndApplyBackup();
+      if (!mounted) return;
+
+      if (success) {
+        await context.read<BatchProvider>().loadBatches();
+        await context.read<RecipeProvider>().loadRecipes();
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Данные успешно восстановлены из Google Drive')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось загрузить резервную копию из Google Drive')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGoogleDriveDownloading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final settingsProvider = context.watch<AppSettingsProvider>();
+    final currentLocaleCode = settingsProvider.currentLocale.languageCode;
+    final currentLanguageName = currentLocaleCode == 'en' ? 'English' : 'Русский';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Настройки'),
@@ -35,11 +104,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.language_outlined, color: Colors.amber),
             title: const Text('Язык интерфейса'),
-            subtitle: Text(_selectedLanguage),
+            subtitle: Text(currentLanguageName),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _showLanguageDialog(context),
           ),
-          // ✅ Новая кнопка настройки внешнего вида карточек
           ListTile(
             leading: const Icon(Icons.style_outlined, color: Colors.amber),
             title: const Text('Вид карточек партий'),
@@ -81,6 +149,129 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               );
             },
+          ),
+
+          const Divider(),
+
+          // Раздел: Облачная синхронизация Google Drive
+          _buildSectionHeader('Синхронизация Google Drive'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: _isGoogleDriveUploading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                          )
+                        : const Icon(Icons.add_to_drive_outlined),
+                    label: Text(_isGoogleDriveUploading ? 'Сохранение...' : 'Выгрузить в Drive'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      foregroundColor: Colors.black,
+                    ),
+                    onPressed: (_isGoogleDriveUploading || _isGoogleDriveDownloading)
+                        ? null
+                        : _uploadToGoogleDrive,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: _isGoogleDriveDownloading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cloud_download_outlined),
+                    label: Text(_isGoogleDriveDownloading ? 'Загрузка...' : 'Скачать из Drive'),
+                    onPressed: (_isGoogleDriveUploading || _isGoogleDriveDownloading)
+                        ? null
+                        : _downloadFromGoogleDrive,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(),
+
+          // Раздел: Облачная синхронизация WebDAV
+          _buildSectionHeader('Синхронизация WebDAV'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _webdavUrlController,
+                  decoration: const InputDecoration(
+                    labelText: 'URL сервера WebDAV',
+                    hintText: 'https://example.com/remote.php/webdav/',
+                    prefixIcon: Icon(Icons.cloud_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _webdavUsernameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Логин',
+                    prefixIcon: Icon(Icons.person_outline),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _webdavPasswordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Пароль',
+                    prefixIcon: Icon(Icons.lock_outline),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: _isUploading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                              )
+                            : const Icon(Icons.cloud_upload_outlined),
+                        label: Text(_isUploading ? 'Выгрузка...' : 'Выгрузить в облако'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber,
+                          foregroundColor: Colors.black,
+                        ),
+                        onPressed: (_isUploading || _isDownloading) ? null : _uploadToWebDav,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: _isDownloading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.cloud_download_outlined),
+                        label: Text(_isDownloading ? 'Загрузка...' : 'Скачать из облака'),
+                        onPressed: (_isUploading || _isDownloading) ? null : _downloadFromWebDav,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
 
           const Divider(),
@@ -163,7 +354,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (success && mounted) {
                   await context.read<BatchProvider>().loadBatches();
                   await context.read<RecipeProvider>().loadRecipes();
-                  
+
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Данные успешно восстановлены')),
@@ -215,6 +406,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  bool _initWebDavClient() {
+    final url = _webdavUrlController.text.trim();
+    final username = _webdavUsernameController.text.trim();
+    final password = _webdavPasswordController.text;
+
+    if (url.isEmpty || username.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Заполните URL, логин и пароль WebDAV')),
+      );
+      return false;
+    }
+
+    CloudSyncService().init(
+      uri: url,
+      user: username,
+      password: password,
+    );
+    return true;
+  }
+
+  Future<void> _uploadToWebDav() async {
+    if (!_initWebDavClient()) return;
+
+    setState(() => _isUploading = true);
+    try {
+      final success = await CloudSyncService().uploadBackupToCloud();
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Бэкап успешно выгружен в WebDAV')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ошибка подключения или выгрузки в WebDAV')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _downloadFromWebDav() async {
+    if (!_initWebDavClient()) return;
+
+    setState(() => _isDownloading = true);
+    try {
+      final success = await CloudSyncService().downloadAndApplyBackup();
+      if (!mounted) return;
+
+      if (success) {
+        await context.read<BatchProvider>().loadBatches();
+        await context.read<RecipeProvider>().loadRecipes();
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Данные успешно загружены из WebDAV')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ошибка скачивания бэкапа из WebDAV')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
+  }
+
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -238,9 +497,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             SimpleDialogOption(
               onPressed: () {
-                setState(() {
-                  _selectedLanguage = 'Русский';
-                });
+                context.read<AppSettingsProvider>().setLocale(const Locale('ru'));
                 Navigator.pop(dialogContext);
               },
               child: const Padding(
@@ -250,9 +507,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             SimpleDialogOption(
               onPressed: () {
-                setState(() {
-                  _selectedLanguage = 'English';
-                });
+                context.read<AppSettingsProvider>().setLocale(const Locale('en'));
                 Navigator.pop(dialogContext);
               },
               child: const Padding(
@@ -289,14 +544,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final batchProvider = context.read<BatchProvider>();
                 final recipeProvider = context.read<RecipeProvider>();
 
+                Navigator.pop(dialogContext);
+
                 await DatabaseService.instance.clearAllData();
-                
                 await batchProvider.loadBatches();
                 await recipeProvider.loadRecipes();
 
                 if (!mounted) return;
 
-                Navigator.pop(dialogContext);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('База данных успешно очищена')),
                 );

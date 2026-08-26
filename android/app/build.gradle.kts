@@ -3,6 +3,7 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+import com.android.build.gradle.internal.api.ApkVariantOutputImpl
 
 android {
     namespace = "com.example.cideroff_app"
@@ -34,6 +35,18 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+    
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.all {
+            val output = this as? ApkVariantOutputImpl
+            if (output != null) {
+                val appName = "CiderOff"
+                val versionName = variant.versionName
+                output.outputFileName = "$appName-v$versionName.apk"
+            }
+        }
+    }    
 }
 
 kotlin {

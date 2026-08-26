@@ -47,7 +47,7 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
           IconButton(
             icon: const Icon(Icons.share),
             tooltip: 'Поделиться / Сохранить PDF',
-            onPressed: () => _sharePdf(context),
+            onPressed: () => _sharePdf(),
           ),
         ],
       ),
@@ -70,11 +70,13 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
     );
   }
 
-  Future<void> _sharePdf(BuildContext context) async {
+  Future<void> _sharePdf() async {
     final pdfBytes = await LabelPdfService.generateLabelPdf(
       batch: widget.batch,
       template: _selectedTemplate,
     );
+
+    if (!mounted) return;
 
     final sanitizeName = widget.batch.name.replaceAll(RegExp(r'[^\w\s\-]'), '_');
     final fileName = 'Label_$sanitizeName.pdf';
@@ -91,11 +93,11 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
         final file = File(outputFile);
         await file.writeAsBytes(pdfBytes);
 
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Этикетка сохранена: $outputFile')),
-          );
-        }
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Этикетка сохранена: $outputFile')),
+        );
       }
     } else {
       final tempDir = await getTemporaryDirectory();

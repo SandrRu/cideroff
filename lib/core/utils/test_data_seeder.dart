@@ -11,7 +11,13 @@ class TestDataSeeder {
     final existingRecipes = await db.getAllRecipes();
     final existingBatches = await db.getAllBatches();
 
-    // 1. Предустановленный рецепт Сидра
+    // 1. Проверка наличия данных перед инициализацией.
+    // Если данные уже существуют и не запрошено принудительное обновление, выходим.
+    if (!forceUpdateRecipes && (existingRecipes.isNotEmpty || existingBatches.isNotEmpty)) {
+      return; 
+    }
+
+    // 2. Предустановленный рецепт Сидра
     final defaultRecipe = Recipe(
       id: 'recipe_classic_dry',
       title: {'ru': 'Классический сухой сидр', 'en': 'Classic Dry Cider'},
@@ -32,7 +38,7 @@ class TestDataSeeder {
         RecipeStep(
           stepIndex: 1,
           title: {'ru': 'Снятие с осадка (Тихое брожение)', 'en': 'Secondary Fermentation'},
-          instruction: {'ru': 'Слейте с дрожжевого осадка в чистый бутль.', 'en': 'Rack off sediment into clean carboy.'},
+          instruction: {'ru': 'Слейте с дрожжевого осадка в чистый бутыль.', 'en': 'Rack off sediment into clean carboy.'},
           durationDays: 30,
           requiresSugarMeasurement: true,
           requiresAlcoholMeasurement: true,
@@ -69,16 +75,9 @@ class TestDataSeeder {
         ),
       ],
     );
-
-    // Вставляем/Перезаписываем дефолтный рецепт сидра всегда
     await db.insertRecipe(defaultRecipe);
 
-    // Проверка для остальных данных (если партии уже есть, новые не создаем)
-    if (existingRecipes.isNotEmpty || existingBatches.isNotEmpty) {
-      return; 
-    }
-
-    // 2. Предустановленный рецепт Кальвадоса
+    // 3. Предустановленный рецепт Кальвадоса
     final calvadosRecipe = Recipe(
       id: 'recipe_classic_calvados',
       title: {'ru': 'Классический Кальвадос', 'en': 'Classic Calvados'},
@@ -144,7 +143,7 @@ class TestDataSeeder {
     );
     await db.insertRecipe(calvadosRecipe);
 
-    // 3. Шаблон термоэтикетки
+    // 4. Шаблон термоэтикетки
     final defaultTemplate = LabelTemplate(
       id: 'template_58x40',
       name: 'Стандартная 58x40 мм',
@@ -154,7 +153,7 @@ class TestDataSeeder {
     );
     await db.insertLabelTemplate(defaultTemplate);
 
-    // 4. Активная партия
+    // 5. Активная партия
     final activeBatch = Batch(
       id: 'batch_active_01',
       name: 'Антоновка 2026',
@@ -183,7 +182,7 @@ class TestDataSeeder {
       ),
     );
 
-    // 5. Готовая партия
+    // 6. Готовая партия
     final completedBatch = Batch(
       id: 'batch_completed_01',
       name: 'Штрифлинг Резерв',

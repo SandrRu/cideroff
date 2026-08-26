@@ -1,7 +1,7 @@
 name: cider_off
 description: "CiderOff - Делаем Сидр."
 publish_to: 'none'
-version: 1.0.2+1
+version: 1.0.3+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -26,6 +26,7 @@ dependencies:
   flutter_local_notifications: ^17.2.3
   # flutter_local_notifications: ^17.1.2
   timezone: ^0.9.2
+  flutter_timezone: ^2.0.0
   # Импорт/Экспорт, работы с файлами
   share_plus: ^10.0.0
   file_picker: ^8.1.4
@@ -41,6 +42,11 @@ dependencies:
   sqlite3: ^2.4.0
   path: ^1.9.0
 
+  webdav_client: ^1.1.2  # Клиент для работы по протоколу WebDAV
+
+  google_sign_in: ^6.2.1
+  googleapis: ^13.0.0
+  extension_google_sign_in_as_googleapis_auth: ^2.0.1
  
   
 dev_dependencies:

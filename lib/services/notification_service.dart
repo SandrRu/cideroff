@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -20,9 +21,9 @@ class NotificationService {
     // Инициализируем базы часовых поясов
     tz.initializeTimeZones();
     
-    // Автоматическое определение локальной часовой зоны через имя или смещение
+    // Автоматическое определение локальной часовой зоны через IANA-имя
     try {
-      final String timeZoneName = DateTime.now().timeZoneName;
+      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(timeZoneName));
     } catch (e) {
       // Фолбэк на UTC, если системная часовая зона не нашлась в базе tz

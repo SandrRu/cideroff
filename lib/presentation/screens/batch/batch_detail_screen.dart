@@ -185,8 +185,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
               ),
               onPressed: () async {
                 final batchProvider = context.read<BatchProvider>();
-                final navigator = Navigator.of(dialogContext);
-                final messenger = ScaffoldMessenger.of(context);
 
                 final updatedBatch = batch.copyWith(
                   name: nameEditController.text.trim(),
@@ -198,14 +196,15 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                   barrelNotes: barrelNotesEdit.text.trim(),
                 );
 
+                Navigator.pop(dialogContext);
+
                 await batchProvider.updateBatch(updatedBatch);
 
-                if (mounted) {
-                  navigator.pop();
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Партия обновлена')),
-                  );
-                }
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Партия обновлена')),
+                );
               },
               child: const Text('Сохранить'),
             ),
@@ -236,19 +235,16 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
               ),
               onPressed: () async {
                 final batchProvider = context.read<BatchProvider>();
-                final dialogNav = Navigator.of(dialogContext);
-                final screenNav = Navigator.of(context);
-                final messenger = ScaffoldMessenger.of(context);
 
-                dialogNav.pop();
+                Navigator.pop(dialogContext);
                 await batchProvider.deleteBatch(batch.id);
 
-                if (mounted) {
-                  screenNav.pop();
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('Партия "${batch.name}" удалена')),
-                  );
-                }
+                if (!mounted) return;
+
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Партия "${batch.name}" удалена')),
+                );
               },
               child: const Text('Удалить'),
             ),
@@ -281,7 +277,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
       ),
     );
 
-    // Умный поиск рецепта с многоуровневым фоллбэком
     Recipe? currentRecipe;
     if (batch.currentRecipeId != null && recipeProvider.recipes.isNotEmpty) {
       final matches = recipeProvider.recipes.where((r) => r.id == batch.currentRecipeId).toList();
@@ -645,15 +640,14 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                       _isSubmitting = true;
                                     });
 
-                                    final messenger = ScaffoldMessenger.of(context);
                                     final baseSugar = double.tryParse(_sugarController.text);
                                     final primingGrams = double.tryParse(_primingSugarController.text) ?? 0.0;
                                     final nonFermentableGrams = double.tryParse(_nonFermentableSugarController.text) ?? 0.0;
 
-                                    // Используем единую логику расчета сладости (г/л переводим в г/100мл делением на 10)
-                                    final finalSweetness = (baseSugar != null)
-                                        ? baseSugar + (nonFermentableGrams / 10.0)
-                                        : null;
+                                    // Безопасный расчет сладости при розливе или указании несбраживаемых сахаров
+                                    final double? finalSweetness = (currentStep.isBottlingStep || nonFermentableGrams > 0)
+                                        ? (baseSugar ?? 0.0) + (nonFermentableGrams / 10.0)
+                                        : baseSugar;
 
                                     try {
                                       await batchProvider.completeCurrentStep(
@@ -670,11 +664,11 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                         finalSugarWithPriming: finalSweetness,
                                       );
 
-                                      if (mounted) {
-                                        messenger.showSnackBar(
-                                          const SnackBar(content: Text('Шаг успешно завершён')),
-                                        );
-                                      }
+                                      if (!mounted) return;
+
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Шаг успешно завершён')),
+                                      );
                                     } finally {
                                       if (mounted) {
                                         setState(() {

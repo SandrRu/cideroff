@@ -6,8 +6,10 @@ import 'package:cider_off/presentation/providers/batch_provider.dart';
 import 'package:cider_off/presentation/providers/recipe_provider.dart';
 import 'package:cider_off/presentation/screens/batch/batch_detail_screen.dart';
 import 'package:cider_off/presentation/screens/batch/create_batch_screen.dart';
+import 'package:cider_off/presentation/screens/calculator/calculator_screen.dart';
 import 'package:cider_off/presentation/screens/settings/settings_screen.dart';
 import 'package:cider_off/presentation/providers/app_settings_provider.dart';
+import 'package:cider_off/data/models/recipe_model.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -45,6 +47,18 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
       appBar: AppBar(
         title: const Text('CiderOff', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.calculate_outlined),
+            tooltip: 'Калькулятор сидродела',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const CalculatorScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Настройки',
@@ -262,22 +276,44 @@ class _BatchCard extends StatelessWidget {
                             if (batch.notes.trim().isNotEmpty) {
                               return batch.notes.trim();
                             }
-                            if (batch.currentRecipeId != null) {
-                              final recipeIndex = recipeProvider.recipes
-                                  .indexWhere((r) => r.id == batch.currentRecipeId);
-                              if (recipeIndex != -1) {
-                                final recipe = recipeProvider.recipes[recipeIndex];
-                                final stepIdx = batch.currentStepIndex ?? 0;
-                                if (stepIdx < recipe.steps.length) {
-                                  final step = recipe.steps[stepIdx];
-                                  // Безопасное получение названия шага через метод модели
-                                  final title = step.getTitle('ru');
-                                  if (title.isNotEmpty) {
-                                    return title;
-                                  }
+
+                            Recipe? foundRecipe;
+
+                            // 1. Пробуем найти рецепт по строгому ID
+                            if (batch.currentRecipeId != null && recipeProvider.recipes.isNotEmpty) {
+                              final matches = recipeProvider.recipes
+                                  .where((r) => r.id == batch.currentRecipeId)
+                                  .toList();
+                              if (matches.isNotEmpty) {
+                                foundRecipe = matches.first;
+                              }
+                            }
+
+                            // 2. Фоллбэк: если по ID не нашли, ищем первый подходящий по типу (Сидр / Кальвадос)
+                            if (foundRecipe == null && recipeProvider.recipes.isNotEmpty) {
+                              final isCalvados = batch.type == BatchType.calvados;
+                              foundRecipe = recipeProvider.recipes.firstWhere(
+                                (r) {
+                                  final isRecipeCalvados = r.id.contains('calvados') ||
+                                      (r.title['ru'] ?? '').toLowerCase().contains('кальвадос');
+                                  return isCalvados ? isRecipeCalvados : !isRecipeCalvados;
+                                },
+                                orElse: () => recipeProvider.recipes.first,
+                              );
+                            }
+
+                            // 3. Извлекаем название текущего шага
+                            if (foundRecipe != null && foundRecipe.steps.isNotEmpty) {
+                              final stepIdx = batch.currentStepIndex ?? 0;
+                              if (stepIdx < foundRecipe.steps.length) {
+                                final step = foundRecipe.steps[stepIdx];
+                                final title = step.getTitle('ru');
+                                if (title.isNotEmpty) {
+                                  return title;
                                 }
                               }
                             }
+
                             return 'Ожидание следующего этапа';
                           },
                           builder: (context, stepTitle, _) {

@@ -12,9 +12,7 @@ class RecipeProvider extends ChangeNotifier {
   List<Recipe> get favoriteRecipes => _recipes.where((r) => r.isFavorite).toList();
   bool get isLoading => _isLoading;
 
-  RecipeProvider() {
-    loadRecipes();
-  }
+  RecipeProvider();
 
   /// Загрузка всех рецептов из базы данных
   Future<void> loadRecipes() async {
