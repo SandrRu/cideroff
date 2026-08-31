@@ -13,17 +13,38 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 
-// 1. Принудительно выставляем compileSdk = 36 для всех модулей ДО evaluationDependsOn
 subprojects {
     afterEvaluate {
         if (project.hasProperty("android")) {
-            val android = project.extensions.findByType(com.android.build.gradle.BaseExtension::class.java)
-            android?.compileSdkVersion(36)
+            val androidExt = project.extensions.findByName("android")
+            if (androidExt != null) {
+                try {
+                    val compileSdkProp = androidExt.javaClass.getMethod("setCompileSdkVersion", Int::class.java)
+                    compileSdkProp.invoke(androidExt, 36)
+                } catch (_: Exception) {
+                    try {
+                        val compileSdkField = androidExt.javaClass.getMethod("setCompileSdk", Int::class.java)
+                        compileSdkField.invoke(androidExt, 36)
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+    }
+
+    // Выравниваем Java 1.8 без использования options.release
+    tasks.withType(JavaCompile::class.java).configureEach {
+        sourceCompatibility = "1.8"
+        targetCompatibility = "1.8"
+    }
+
+    // Выравниваем Kotlin JVM Target на 1.8
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
         }
     }
 }
 
-// 2. Инициализация Flutter-подпроекта
 subprojects {
     project.evaluationDependsOn(":app")
 }

@@ -18,6 +18,8 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
   late TextEditingController _descRuController;
   List<RecipeStep> _steps = [];
 
+  bool get _isReadOnly => widget.recipe != null && !widget.recipe!.isCustom;
+
   @override
   void initState() {
     super.initState();
@@ -40,7 +42,15 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
           ];
   }
 
+  @override
+  void dispose() {
+    _titleRuController.dispose();
+    _descRuController.dispose();
+    super.dispose();
+  }
+
   void _addStep() {
+    if (_isReadOnly) return;
     final newStep = RecipeStep(
       stepIndex: _steps.length,
       title: {'ru': 'Новый шаг'},
@@ -54,6 +64,8 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
   }
 
   void _editStep(RecipeStep step, int index) {
+    if (_isReadOnly) return;
+
     final titleController = TextEditingController(text: step.getTitle('ru'));
     final instructionController = TextEditingController(text: step.getInstruction('ru'));
     final durationController = TextEditingController(text: step.durationDays.toString());
@@ -68,15 +80,17 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text('Шаг ${index + 1}: Настройка'),
+              title: Text('Настройка шага ${index + 1}'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextField(
                       controller: titleController,
                       decoration: const InputDecoration(
                         labelText: 'Название шага',
+                        hintText: 'Например: Снятие с осадка',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -86,6 +100,7 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         labelText: 'Длительность (дней)',
+                        hintText: '14',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -94,28 +109,56 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
                       controller: instructionController,
                       maxLines: 3,
                       decoration: const InputDecoration(
-                        labelText: 'Инструкция',
+                        labelText: 'Инструкция к шагу',
+                        hintText: 'Подробное описание действий на этом этапе',
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    CheckboxListTile(
-                      title: const Text('Замер сахара'),
-                      value: requiresSugar,
-                      activeColor: Colors.amber,
-                      onChanged: (v) => setDialogState(() => requiresSugar = v ?? false),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Требуемые замеры и параметры',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.black87,
+                      ),
                     ),
-                    CheckboxListTile(
-                      title: const Text('Замер спирта'),
-                      value: requiresAlcohol,
-                      activeColor: Colors.amber,
-                      onChanged: (v) => setDialogState(() => requiresAlcohol = v ?? false),
-                    ),
-                    CheckboxListTile(
-                      title: const Text('Этап розлива (финал)'),
-                      value: isBottling,
-                      activeColor: Colors.green,
-                      onChanged: (v) => setDialogState(() => isBottling = v ?? false),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          SwitchListTile(
+                            dense: true,
+                            title: const Text('Замер сахара'),
+                            subtitle: const Text('Включить ввод граммов сахара на 100 мл'),
+                            value: requiresSugar,
+                            activeColor: Colors.amber,
+                            onChanged: (v) => setDialogState(() => requiresSugar = v),
+                          ),
+                          const Divider(height: 1),
+                          SwitchListTile(
+                            dense: true,
+                            title: const Text('Замер крепости'),
+                            subtitle: const Text('Включить ввод спирта (% об.)'),
+                            value: requiresAlcohol,
+                            activeColor: Colors.amber,
+                            onChanged: (v) => setDialogState(() => requiresAlcohol = v),
+                          ),
+                          const Divider(height: 1),
+                          SwitchListTile(
+                            dense: true,
+                            title: const Text('Этап розлива (Финал)'),
+                            subtitle: const Text('Активирует форму фасовки по подпартиям'),
+                            value: isBottling,
+                            activeColor: Colors.green,
+                            onChanged: (v) => setDialogState(() => isBottling = v),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -161,12 +204,20 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.recipe == null ? 'Новый рецепт' : 'Редактирование рецепта'),
+        title: Text(
+          widget.recipe == null
+              ? 'Новый рецепт'
+              : (_isReadOnly
+                  ? 'Просмотр системного рецепта'
+                  : 'Редактирование рецепта'),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.check),
-            onPressed: _saveRecipe,
-          ),
+          if (!_isReadOnly)
+            IconButton(
+              icon: const Icon(Icons.check),
+              tooltip: 'Сохранить',
+              onPressed: _saveRecipe,
+            ),
         ],
       ),
       body: Form(
@@ -174,17 +225,62 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (_isReadOnly)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lock_outline, color: Colors.amber),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Это системный рецепт, его нельзя редактировать. Вы можете продублировать его и изменить копию.',
+                        style: TextStyle(fontSize: 12, color: Colors.black87),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final nav = Navigator.of(context);
+                        final messenger = ScaffoldMessenger.of(context);
+                        await context
+                            .read<RecipeProvider>()
+                            .duplicateAsCustom(widget.recipe!);
+                        if (!mounted) return;
+                        nav.pop();
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Создана пользовательская копия рецепта',
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('Дублировать'),
+                    ),
+                  ],
+                ),
+              ),
+
             TextFormField(
               controller: _titleRuController,
+              enabled: !_isReadOnly,
               decoration: const InputDecoration(
                 labelText: 'Название рецепта',
                 border: OutlineInputBorder(),
               ),
-              validator: (v) => v == null || v.isEmpty ? 'Введите название' : null,
+              validator: (v) =>
+                  v == null || v.isEmpty ? 'Введите название' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _descRuController,
+              enabled: !_isReadOnly,
               maxLines: 2,
               decoration: const InputDecoration(
                 labelText: 'Описание рецепта',
@@ -197,35 +293,30 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
               children: [
                 Text(
                   'Шаги рецепта (${_steps.length})',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
-                TextButton.icon(
-                  onPressed: _addStep,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Добавить шаг'),
-                ),
+                if (!_isReadOnly)
+                  TextButton.icon(
+                    onPressed: _addStep,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Добавить шаг'),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
-            ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _steps.length,
-              onReorder: (oldIndex, newIndex) {
-                setState(() {
-                  if (newIndex > oldIndex) newIndex -= 1;
-                  final item = _steps.removeAt(oldIndex);
-                  _steps.insert(newIndex, item);
-                });
-              },
-              itemBuilder: (context, index) {
-                final step = _steps[index];
-                return Card(
-                  key: ValueKey(step.hashCode),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => _editStep(step, index),
+
+            if (_isReadOnly)
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _steps.length,
+                itemBuilder: (context, index) {
+                  final step = _steps[index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(
@@ -236,49 +327,152 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
                               CircleAvatar(
                                 radius: 12,
                                 backgroundColor: Colors.amber,
-                                child: Text('${index + 1}', style: const TextStyle(fontSize: 12, color: Colors.black)),
+                                child: Text(
+                                  '${index + 1}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black,
+                                  ),
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   step.getTitle('ru'),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                                tooltip: 'Редактировать',
-                                onPressed: () => _editStep(step, index),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                tooltip: 'Удалить',
-                                onPressed: () {
-                                  setState(() {
-                                    _steps.removeAt(index);
-                                  });
-                                },
                               ),
                             ],
                           ),
+                          const SizedBox(height: 4),
                           Text('Интервал: ${step.durationDays} дн.'),
                           if (step.getInstruction('ru').isNotEmpty)
                             Text(
                               step.getInstruction('ru'),
-                              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.grey.shade700,
+                                fontSize: 13,
+                              ),
                             ),
-                          if (step.requiresSugarMeasurement) const Text('• Требуется замер сахара'),
-                          if (step.requiresAlcoholMeasurement) const Text('• Требуется замер спирта'),
-                          if (step.isBottlingStep) const Text('• Этап розлива (финал)', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                          if (step.requiresSugarMeasurement)
+                            const Text('• Требуется замер сахара'),
+                          if (step.requiresAlcoholMeasurement)
+                            const Text('• Требуется замер спирта'),
+                          if (step.isBottlingStep)
+                            const Text(
+                              '• Этап розлива (финал)',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                         ],
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              )
+            else
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _steps.length,
+                onReorder: (oldIndex, newIndex) {
+                  setState(() {
+                    if (newIndex > oldIndex) newIndex -= 1;
+                    final item = _steps.removeAt(oldIndex);
+                    _steps.insert(newIndex, item);
+                  });
+                },
+                itemBuilder: (context, index) {
+                  final step = _steps[index];
+                  return Card(
+                    key: ValueKey(step.hashCode),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _editStep(step, index),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 12,
+                                  backgroundColor: Colors.amber,
+                                  child: Text(
+                                    '${index + 1}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    step.getTitle('ru'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    color: Colors.blue,
+                                  ),
+                                  tooltip: 'Редактировать',
+                                  onPressed: () => _editStep(step, index),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                  ),
+                                  tooltip: 'Удалить',
+                                  onPressed: () {
+                                    setState(() {
+                                      _steps.removeAt(index);
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                            Text('Интервал: ${step.durationDays} дн.'),
+                            if (step.getInstruction('ru').isNotEmpty)
+                              Text(
+                                step.getInstruction('ru'),
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            if (step.requiresSugarMeasurement)
+                              const Text('• Требуется замер сахара'),
+                            if (step.requiresAlcoholMeasurement)
+                              const Text('• Требуется замер спирта'),
+                            if (step.isBottlingStep)
+                              const Text(
+                                '• Этап розлива (финал)',
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
           ],
         ),
       ),
@@ -286,9 +480,11 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
   }
 
   void _saveRecipe() {
+    if (_isReadOnly) return;
+
     if (_formKey.currentState!.validate()) {
       final newRecipe = Recipe(
-        id: widget.recipe?.id, // Передаем прежний ID при обновлении рецепта
+        id: widget.recipe?.id,
         title: {'ru': _titleRuController.text},
         description: {'ru': _descRuController.text},
         isCustom: true,

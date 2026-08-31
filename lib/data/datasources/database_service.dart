@@ -6,6 +6,8 @@ import '../models/batch_model.dart';
 import '../models/batch_history_model.dart';
 import '../models/recipe_model.dart';
 import '../models/label_template_model.dart';
+import '../models/yeast_model.dart';
+import '../models/batch_container_model.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -25,7 +27,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 7,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON;');
       },
@@ -42,7 +44,6 @@ class DatabaseService {
     const integerType = 'INTEGER NOT NULL';
     const integerNullable = 'INTEGER';
 
-    // 1. Таблица Партий
     await db.execute('''
       CREATE TABLE batches (
         id $textType PRIMARY KEY,
@@ -63,6 +64,7 @@ class DatabaseService {
         primingSugarGrams $realNullable,
         nonFermentableSugarGrams $realNullable,
         finalSugarWithPriming $realNullable,
+        lossVolume $realNullable,
         notes $textNullable,
         rawSpiritVolume $realNullable,
         rawSpiritABV $realNullable,
@@ -71,11 +73,12 @@ class DatabaseService {
         barrelDilutedABV $realNullable,
         agingStartDate $textNullable,
         barrelNotes $textNullable,
-        FOREIGN KEY (currentRecipeId) REFERENCES recipes (id) ON DELETE SET NULL
+        yeastId $textNullable,
+        FOREIGN KEY (currentRecipeId) REFERENCES recipes (id) ON DELETE SET NULL,
+        FOREIGN KEY (yeastId) REFERENCES yeasts (id) ON DELETE SET NULL
       )
     ''');
 
-    // 2. Таблица Истории
     await db.execute('''
       CREATE TABLE history (
         id $textType PRIMARY KEY,
@@ -91,7 +94,6 @@ class DatabaseService {
       )
     ''');
 
-    // 3. Таблица Рецептов
     await db.execute('''
       CREATE TABLE recipes (
         id $textType PRIMARY KEY,
@@ -103,7 +105,6 @@ class DatabaseService {
       )
     ''');
 
-    // 4. Таблица Макетов Этикеток
     await db.execute('''
       CREATE TABLE label_templates (
         id $textType PRIMARY KEY,
@@ -113,9 +114,32 @@ class DatabaseService {
         schemaJson $textType
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE yeasts (
+        id $textType PRIMARY KEY,
+        name $textType,
+        category $textType,
+        description $textNullable,
+        isCustom $integerType
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE batch_containers (
+        id $textType PRIMARY KEY,
+        batchId $textType,
+        title $textType,
+        sweetenerType $textNullable,
+        sweetenerAmountGramsPerLiter $realType,
+        containerType $textType,
+        containerVolumeLiters $realType,
+        count $integerType,
+        FOREIGN KEY (batchId) REFERENCES batches (id) ON DELETE CASCADE
+      )
+    ''');
   }
 
-  /// Безопасная миграция структуры БД при обновлении версии
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await _addColumnIfNotExists(db, 'batches', 'type', "TEXT DEFAULT 'cider'");
@@ -139,10 +163,41 @@ class DatabaseService {
     
     if (oldVersion < 5) {
       await _addColumnIfNotExists(db, 'history', 'nonFermentableSugarGrams', 'REAL');
-    }    
+    }
+
+    if (oldVersion < 6) {
+      await _addColumnIfNotExists(db, 'batches', 'yeastId', 'TEXT');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS yeasts (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          category TEXT NOT NULL,
+          description TEXT,
+          isCustom INTEGER NOT NULL DEFAULT 1
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS batch_containers (
+          id TEXT PRIMARY KEY,
+          batchId TEXT NOT NULL,
+          title TEXT NOT NULL,
+          sweetenerType TEXT,
+          sweetenerAmountGramsPerLiter REAL NOT NULL DEFAULT 0.0,
+          containerType TEXT NOT NULL,
+          containerVolumeLiters REAL NOT NULL DEFAULT 0.75,
+          count INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (batchId) REFERENCES batches (id) ON DELETE CASCADE
+        )
+      ''');
+    }
+
+    if (oldVersion < 7) {
+      await _addColumnIfNotExists(db, 'batches', 'lossVolume', 'REAL');
+    }
   }
 
-  /// Проверка существования колонки перед добавлением для предотвращения Duplicate Column Error
   Future<void> _addColumnIfNotExists(
     Database db,
     String table,
@@ -156,11 +211,20 @@ class DatabaseService {
     }
   }
 
-  // --- CRUD ДЛЯ ПАРТИЙ ---
+  // --- CRUD ДЛЯ ПАРТИЙ С ПОДДЕРЖКОЙ ПОДПАРТИЙ ---
 
   Future<void> insertBatch(Batch batch) async {
     final db = await instance.database;
-    await db.insert('batches', batch.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.transaction((txn) async {
+      await txn.insert('batches', batch.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+
+      if (batch.containers.isNotEmpty) {
+        await txn.delete('batch_containers', where: 'batchId = ?', whereArgs: [batch.id]);
+        for (final container in batch.containers) {
+          await txn.insert('batch_containers', container.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+      }
+    });
   }
 
   Future<List<Batch>> getAllBatches() async {
@@ -170,7 +234,9 @@ class DatabaseService {
     final List<Batch> batches = [];
     for (final json in result) {
       try {
-        batches.add(Batch.fromJson(json));
+        final batchId = json['id'] as String;
+        final containers = await getContainersForBatch(batchId);
+        batches.add(Batch.fromJson(json, containers: containers));
       } catch (e, stack) {
         debugPrint('Ошибка парсинга партии ID ${json['id']}: $e');
         debugPrint(stack.toString());
@@ -184,7 +250,8 @@ class DatabaseService {
     final maps = await db.query('batches', where: 'id = ?', whereArgs: [id]);
     if (maps.isNotEmpty) {
       try {
-        return Batch.fromJson(maps.first);
+        final containers = await getContainersForBatch(id);
+        return Batch.fromJson(maps.first, containers: containers);
       } catch (e) {
         debugPrint('Ошибка парсинга партии по ID $id: $e');
       }
@@ -194,12 +261,19 @@ class DatabaseService {
 
   Future<void> updateBatch(Batch batch) async {
     final db = await instance.database;
-    await db.update(
-      'batches',
-      batch.toJson(),
-      where: 'id = ?',
-      whereArgs: [batch.id],
-    );
+    await db.transaction((txn) async {
+      await txn.update(
+        'batches',
+        batch.toJson(),
+        where: 'id = ?',
+        whereArgs: [batch.id],
+      );
+
+      await txn.delete('batch_containers', where: 'batchId = ?', whereArgs: [batch.id]);
+      for (final container in batch.containers) {
+        await txn.insert('batch_containers', container.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    });
   }
 
   Future<void> deleteBatch(String id) async {
@@ -225,10 +299,58 @@ class DatabaseService {
     return result.map((json) => BatchHistory.fromJson(json)).toList();
   }
 
+  Future<int> updateHistory(BatchHistory history) async {
+    final db = await instance.database;
+    return await db.update(
+      'history',
+      history.toJson(),
+      where: 'id = ?',
+      whereArgs: [history.id],
+    );
+  }
+
+  Future<int> deleteHistory(String id) async {
+    final db = await instance.database;
+    return await db.delete(
+      'history',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   // --- CRUD ДЛЯ РЕЦЕПТОВ ---
 
   Future<void> insertRecipe(Recipe recipe) async {
     final db = await instance.database;
+
+    // Проверяем, существует ли уже такой рецепт
+    final existing = await db.query('recipes', where: 'id = ?', whereArgs: [recipe.id]);
+
+    if (existing.isNotEmpty) {
+      final isExistingCustom = (existing.first['isCustom'] == 1 || existing.first['isCustom'] == true);
+
+      // Блокируем изменение системного рецепта (разрешаем обновлять только isFavorite)
+      if (!isExistingCustom) {
+        final existingTitle = existing.first['title'] as String;
+        final existingDesc = existing.first['description'] != null ? existing.first['description'] as String : null;
+        final existingSteps = existing.first['steps'] as String;
+
+        await db.update(
+          'recipes',
+          {
+            'title': existingTitle,
+            'description': existingDesc,
+            'isCustom': 0,
+            'isFavorite': recipe.isFavorite ? 1 : 0,
+            'steps': existingSteps,
+          },
+          where: 'id = ?',
+          whereArgs: [recipe.id],
+        );
+        return;
+      }
+    }
+
     final data = recipe.toJson();
     data['title'] = jsonEncode(data['title']);
     data['description'] = data['description'] != null ? jsonEncode(data['description']) : null;
@@ -254,7 +376,6 @@ class DatabaseService {
         mutable['description'] = {};
       }
       
-      // Безопасное приведение числовых/булевых типов
       mutable['isCustom'] = mutable['isCustom'] == 1 || mutable['isCustom'] == true;
       mutable['isFavorite'] = mutable['isFavorite'] == 1 || mutable['isFavorite'] == true;
       
@@ -264,6 +385,51 @@ class DatabaseService {
       
       return Recipe.fromJson(mutable);
     }).toList();
+  }
+
+  Future<int> deleteRecipe(String id) async {
+    final db = await instance.database;
+    return await db.delete('recipes', where: 'id = ? AND isCustom = 1', whereArgs: [id]);
+  }
+
+  // --- CRUD ДЛЯ ДРОЖЖЕЙ ---
+
+  Future<void> insertYeast(Yeast yeast) async {
+    final db = await instance.database;
+    await db.insert('yeasts', yeast.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<Yeast>> getAllYeasts() async {
+    final db = await instance.database;
+    final result = await db.query('yeasts', orderBy: 'name ASC');
+    return result.map((json) => Yeast.fromJson(json)).toList();
+  }
+
+  Future<int> deleteYeast(String id) async {
+    final db = await instance.database;
+    return await db.delete('yeasts', where: 'id = ? AND isCustom = 1', whereArgs: [id]);
+  }
+
+  // --- CRUD ДЛЯ ПОДПАРТИЙ / ТАРЫ ---
+
+  Future<void> insertBatchContainer(BatchContainer container) async {
+    final db = await instance.database;
+    await db.insert('batch_containers', container.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<BatchContainer>> getContainersForBatch(String batchId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'batch_containers',
+      where: 'batchId = ?',
+      whereArgs: [batchId],
+    );
+    return result.map((json) => BatchContainer.fromJson(json)).toList();
+  }
+
+  Future<int> deleteBatchContainer(String id) async {
+    final db = await instance.database;
+    return await db.delete('batch_containers', where: 'id = ?', whereArgs: [id]);
   }
 
   // --- CRUD ДЛЯ МАКЕТОВ ---
@@ -298,32 +464,14 @@ class DatabaseService {
     );
   }
 
-  /// Полная очистка всех пользовательских данных
   Future<void> clearAllData() async {
     final db = await instance.database;
-    await db.delete('history');
-    await db.delete('batches');
-    await db.delete('recipes', where: 'isCustom = 1');
-  }
-
-  // --- CRUD ДЛЯ ИСТОРИИ ---
-
-  Future<int> updateHistory(BatchHistory history) async {
-    final db = await instance.database;
-    return await db.update(
-      'history',
-      history.toJson(),
-      where: 'id = ?',
-      whereArgs: [history.id],
-    );
-  }
-
-  Future<int> deleteHistory(String id) async {
-    final db = await instance.database;
-    return await db.delete(
-      'history',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.transaction((txn) async {
+      await txn.delete('history');
+      await txn.delete('batch_containers');
+      await txn.delete('batches');
+      await txn.delete('recipes', where: 'isCustom = 1');
+      await txn.delete('yeasts', where: 'isCustom = 1');
+    });
   }
 }

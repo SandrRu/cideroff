@@ -3,6 +3,7 @@ import '../../data/models/batch_model.dart';
 import '../../data/models/batch_history_model.dart';
 import '../../data/models/recipe_model.dart';
 import '../../data/models/label_template_model.dart';
+import '../../data/models/yeast_model.dart';
 
 class TestDataSeeder {
   static Future<void> seedDatabase({bool forceUpdateRecipes = false}) async {
@@ -10,11 +11,56 @@ class TestDataSeeder {
 
     final existingRecipes = await db.getAllRecipes();
     final existingBatches = await db.getAllBatches();
+    final existingYeasts = await db.getAllYeasts();
 
-    // 1. Проверка наличия данных перед инициализацией.
-    // Если данные уже существуют и не запрошено принудительное обновление, выходим.
+    // 1. Сидинг базового справочника дрожжей (если таблица пуста)
+    if (existingYeasts.isEmpty) {
+      final defaultYeasts = [
+        Yeast(
+          id: 'yeast_mangrove_m02',
+          name: "Mangrove Jack's Cider M02",
+          category: 'Cider',
+          description: 'Специализированный штамм для сидра. Высокая флокуляция, сохраняет яркий фруктовый аромат яблок.',
+          isCustom: false,
+        ),
+        Yeast(
+          id: 'yeast_safcider_ab1',
+          name: 'Fermentis SafCider AB-1',
+          category: 'Cider',
+          description: 'Универсальные сидровые дрожжи. Подходят для сухих и полусухих сидров даже при низкой температуре.',
+          isCustom: false,
+        ),
+        Yeast(
+          id: 'yeast_safcider_ac4',
+          name: 'Fermentis SafCider AC-4',
+          category: 'Cider',
+          description: 'Дают свежий ароматический профиль с выраженными кислыми яблочными нотами.',
+          isCustom: false,
+        ),
+        Yeast(
+          id: 'yeast_lalvin_ec1118',
+          name: 'Lalvin EC-1118',
+          category: 'Universal / Calvados',
+          description: 'Шампанский штамм. Высокая киллер-активность, отличная сбраживаемость для крепких сидров и сусла под Кальвадос.',
+          isCustom: false,
+        ),
+        Yeast(
+          id: 'yeast_lallemand_distilaMax',
+          name: 'Lallemand DistilaMax RM',
+          category: 'Calvados',
+          description: 'Профессиональный штамм для фруктовых дистиллятов (яблочный бренди / кальвадос).',
+          isCustom: false,
+        ),
+      ];
+
+      for (final yeast in defaultYeasts) {
+        await db.insertYeast(yeast);
+      }
+    }
+
+    // Если данные уже есть и не запрошено принудительное обновление рецептов — выходим
     if (!forceUpdateRecipes && (existingRecipes.isNotEmpty || existingBatches.isNotEmpty)) {
-      return; 
+      return;
     }
 
     // 2. Предустановленный рецепт Сидра
@@ -30,8 +76,11 @@ class TestDataSeeder {
       steps: [
         RecipeStep(
           stepIndex: 0,
-          title: {'ru': 'Первичное брожение', 'en': 'Primary Fermentation'},
-          instruction: {'ru': 'Установите гидрозатвор. Температура 18-22°C.', 'en': 'Attach airlock. Temp 18-22°C.'},
+          title: {'ru': 'Постановка на первичное брожение', 'en': 'Primary Fermentation'},
+          instruction: {
+            'ru': 'Замерьте начальный сахар сусла и внесите дрожжи. Установите гидрозатвор. Температура 18-22°C.',
+            'en': 'Measure initial sugar, add yeast and attach airlock. Temp 18-22°C.'
+          },
           durationDays: 14,
           requiresSugarMeasurement: true,
         ),
@@ -39,7 +88,7 @@ class TestDataSeeder {
           stepIndex: 1,
           title: {'ru': 'Снятие с осадка (Тихое брожение)', 'en': 'Secondary Fermentation'},
           instruction: {'ru': 'Слейте с дрожжевого осадка в чистый бутыль.', 'en': 'Rack off sediment into clean carboy.'},
-          durationDays: 30,
+          durationDays: 14,
           requiresSugarMeasurement: true,
           requiresAlcoholMeasurement: true,
         ),
@@ -90,8 +139,11 @@ class TestDataSeeder {
       steps: [
         RecipeStep(
           stepIndex: 0,
-          title: {'ru': 'Отжим и запуск брожения', 'en': 'Primary Fermentation'},
-          instruction: {'ru': 'Отожмите сок из кислых и горько-сладких яблок (цель: 13-15 г/100мл сахара). Внесите сидровые дрожжи.', 'en': 'Press juice from bitter-sweet apples. Pitch yeast.'},
+          title: {'ru': 'Постановка на первичное брожение', 'en': 'Primary Fermentation'},
+          instruction: {
+            'ru': 'Отожмите сок из кислых и горько-сладких яблок. Измерьте начальный сахар (цель: 13-15 г/100мл) и внесите сидровые дрожжи.',
+            'en': 'Press juice, measure sugar (target: 13-15 g/100ml) and pitch yeast.'
+          },
           durationDays: 21,
           requiresSugarMeasurement: true,
         ),
@@ -167,6 +219,7 @@ class TestDataSeeder {
       nextStepDate: DateTime.now().add(const Duration(days: 4)),
       containerCount: 0,
       notes: 'Отличный аромат, высокий уровень кислотности.',
+      yeastId: 'yeast_mangrove_m02',
     );
     await db.insertBatch(activeBatch);
 
@@ -174,11 +227,11 @@ class TestDataSeeder {
       BatchHistory(
         batchId: activeBatch.id,
         timestamp: DateTime.now().subtract(const Duration(days: 10)),
-        stepTitle: 'Первичное брожение',
+        stepTitle: 'Постановка на первичное брожение',
         actionName: 'Партия создана',
         sugarMeasured: 12.5,
         alcoholMeasured: 0.0,
-        note: 'Залито 25 литров сока',
+        note: 'Залито 25 литров сока. Внесены дрожжи Mangrove Jack\'s M02',
       ),
     );
 
@@ -196,6 +249,7 @@ class TestDataSeeder {
       finalSugar: 0.0,
       finalAlcohol: 6.1,
       notes: 'Освежающий, прозрачный, хорошая естественная газация.',
+      yeastId: 'yeast_safcider_ab1',
     );
     await db.insertBatch(completedBatch);
 
@@ -203,7 +257,7 @@ class TestDataSeeder {
       BatchHistory(
         batchId: completedBatch.id,
         timestamp: DateTime.now().subtract(const Duration(days: 60)),
-        stepTitle: 'Первичное брожение',
+        stepTitle: 'Постановка на первичное брожение',
         actionName: 'Партия создана',
         sugarMeasured: 13.0,
         alcoholMeasured: 0.0,

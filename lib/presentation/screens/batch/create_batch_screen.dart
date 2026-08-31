@@ -19,8 +19,8 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
 
   final _nameController = TextEditingController();
   final _appleVarietyController = TextEditingController();
-  final _sugarController = TextEditingController(text: '12.0');
   final _volumeController = TextEditingController(text: '10.0');
+  final _initialSugarController = TextEditingController(text: '12.0');
   final _notesController = TextEditingController();
 
   // Контроллеры для Кальвадоса
@@ -36,13 +36,20 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
   void dispose() {
     _nameController.dispose();
     _appleVarietyController.dispose();
-    _sugarController.dispose();
     _volumeController.dispose();
+    _initialSugarController.dispose();
     _notesController.dispose();
     _rawSpiritVolumeController.dispose();
     _rawSpiritAbvController.dispose();
     _barrelNotesController.dispose();
     super.dispose();
+  }
+
+  double? _parseDouble(String? text) {
+    if (text == null) return null;
+    final cleaned = text.trim().replaceAll(',', '.');
+    if (cleaned.isEmpty) return null;
+    return double.tryParse(cleaned);
   }
 
   @override
@@ -150,21 +157,20 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Числовые параметры сусла: Сахар и Объём
+            // Объем сока и начальный сахар
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
-                    controller: _sugarController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    controller: _volumeController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
-                      labelText: 'Сахар (г/100мл)',
+                      labelText: 'Объём сока (л)',
                       border: OutlineInputBorder(),
                     ),
                     validator: (v) {
-                      if (v == null || v.isEmpty) return 'Укажите сахар';
-                      if (double.tryParse(v) == null) return 'Не число';
+                      if (v == null || v.isEmpty) return 'Укажите объём';
+                      if (_parseDouble(v) == null) return 'Не число';
                       return null;
                     },
                   ),
@@ -172,16 +178,15 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
-                    controller: _volumeController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    controller: _initialSugarController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
-                      labelText: 'Объём сока (л)',
+                      labelText: 'Нач. сахар (г/100мл)',
                       border: OutlineInputBorder(),
                     ),
                     validator: (v) {
-                      if (v == null || v.isEmpty) return 'Укажите объём';
-                      if (double.tryParse(v) == null) return 'Не число';
+                      if (v == null || v.isEmpty) return 'Укажите сахар';
+                      if (_parseDouble(v) == null) return 'Не число';
                       return null;
                     },
                   ),
@@ -278,7 +283,7 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
               maxLines: 3,
               decoration: const InputDecoration(
                 labelText: 'Заметка к партии',
-                hintText: 'Особенности отжима, температура, дрожжи и т.д.',
+                hintText: 'Особенности отжима, температура, заметки и т.д.',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -315,14 +320,15 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
       await batchProvider.createBatch(
         name: _nameController.text.trim(),
         appleVariety: _appleVarietyController.text.trim(),
-        initialSugar: double.parse(_sugarController.text),
-        juiceVolume: double.parse(_volumeController.text),
+        initialSugar: _parseDouble(_initialSugarController.text) ?? 0.0,
+        juiceVolume: _parseDouble(_volumeController.text)!,
         pressDate: _pressDate,
         recipe: _selectedRecipe!,
         notes: _notesController.text.trim(),
         type: _selectedType,
-        rawSpiritVolume: double.tryParse(_rawSpiritVolumeController.text),
-        rawSpiritAbv: double.tryParse(_rawSpiritAbvController.text),
+        yeastId: null,
+        rawSpiritVolume: _parseDouble(_rawSpiritVolumeController.text),
+        rawSpiritAbv: _parseDouble(_rawSpiritAbvController.text),
         barrelNotes: _barrelNotesController.text.trim(),
       );
 

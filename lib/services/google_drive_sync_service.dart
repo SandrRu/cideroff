@@ -103,16 +103,21 @@ class GoogleDriveSyncService {
       }
 
       final fileId = fileList.files!.first.id!;
-      final drive.Media fileMedia = await driveApi.files.get(
+      final dynamic response = await driveApi.files.get(
         fileId,
         downloadOptions: drive.DownloadOptions.fullMedia,
-      ) as drive.Media;
+      );
+
+      if (response is! drive.Media) {
+        debugPrint('Не удалось получить поток файла Media из Google Drive');
+        return false;
+      }
 
       final tempDir = await getTemporaryDirectory();
       final localFile = File('${tempDir.path}/$fileName');
       
       final List<int> dataBytes = [];
-      await for (final data in fileMedia.stream) {
+      await for (final data in response.stream) {
         dataBytes.addAll(data);
       }
       await localFile.writeAsBytes(dataBytes);

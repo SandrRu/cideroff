@@ -3,13 +3,16 @@ import 'package:provider/provider.dart';
 
 import '../../../services/export_import_service.dart';
 import '../../../services/cloud_sync_service.dart';
-import '../../../services/google_drive_sync_service.dart'; // <-- Импортируем новый сервис
+import '../../../services/google_drive_sync_service.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/batch_provider.dart';
 import '../../providers/recipe_provider.dart';
+import '../../providers/yeast_provider.dart';
 import '../recipe/recipe_list_screen.dart';
 import '../label/label_template_list_screen.dart';
+import '../yeast/yeast_list_screen.dart';
 import 'batch_card_settings_screen.dart';
+import 'dashboard_settings_screen.dart';
 import '../../../data/datasources/database_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -71,6 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (success) {
         await context.read<BatchProvider>().loadBatches();
         await context.read<RecipeProvider>().loadRecipes();
+        await context.read<YeastProvider>().loadYeasts();
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -109,6 +113,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _showLanguageDialog(context),
           ),
           ListTile(
+            leading: const Icon(Icons.dashboard_outlined, color: Colors.amber),
+            title: const Text('Настройки Дашборда'),
+            subtitle: const Text('Выбор колонок и активных карточек статистики'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DashboardSettingsScreen(),
+                ),
+              );
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.style_outlined, color: Colors.amber),
             title: const Text('Вид карточек партий'),
             subtitle: const Text('Выбор отображаемых полей на главном экране'),
@@ -118,6 +136,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => const BatchCardSettingsScreen(),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.grain_outlined, color: Colors.amber),
+            title: const Text('Справочник дрожжей'),
+            subtitle: const Text('Управление штаммами дрожжей для брожения'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const YeastListScreen(),
                 ),
               );
             },
@@ -310,13 +342,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.refresh, color: Colors.blue),
             title: const Text('Перезагрузить все данные'),
-            subtitle: const Text('Обновить список партий и рецептов из базы'),
+            subtitle: const Text('Обновить список партий, рецептов и дрожжей из базы'),
             onTap: () async {
               final batchProvider = context.read<BatchProvider>();
               final recipeProvider = context.read<RecipeProvider>();
+              final yeastProvider = context.read<YeastProvider>();
 
               await batchProvider.loadBatches();
               await recipeProvider.loadRecipes();
+              await yeastProvider.loadYeasts();
 
               if (!mounted) return;
 
@@ -354,6 +388,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (success && mounted) {
                   await context.read<BatchProvider>().loadBatches();
                   await context.read<RecipeProvider>().loadRecipes();
+                  await context.read<YeastProvider>().loadYeasts();
 
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -382,7 +417,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const ListTile(
             leading: Icon(Icons.local_drink_outlined, color: Colors.amber),
             title: Text('CiderOff'),
-            subtitle: Text('Версия 1.0.0 (Build 1)'),
+            subtitle: Text('Версия 1.1.0'),
           ),
           ListTile(
             leading: const Icon(Icons.info_outline, color: Colors.grey),
@@ -392,7 +427,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               showAboutDialog(
                 context: context,
                 applicationName: 'CiderOff',
-                applicationVersion: '1.0.0',
+                applicationVersion: '1.1.0',
                 applicationIcon: const Icon(Icons.local_drink, size: 40, color: Colors.amber),
                 children: [
                   const SizedBox(height: 12),
@@ -459,6 +494,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (success) {
         await context.read<BatchProvider>().loadBatches();
         await context.read<RecipeProvider>().loadRecipes();
+        await context.read<YeastProvider>().loadYeasts();
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -543,12 +579,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () async {
                 final batchProvider = context.read<BatchProvider>();
                 final recipeProvider = context.read<RecipeProvider>();
+                final yeastProvider = context.read<YeastProvider>();
 
                 Navigator.pop(dialogContext);
 
                 await DatabaseService.instance.clearAllData();
                 await batchProvider.loadBatches();
                 await recipeProvider.loadRecipes();
+                await yeastProvider.loadYeasts();
 
                 if (!mounted) return;
 

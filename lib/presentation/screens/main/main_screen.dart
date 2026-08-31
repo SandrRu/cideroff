@@ -6,10 +6,10 @@ import 'package:cider_off/presentation/providers/batch_provider.dart';
 import 'package:cider_off/presentation/providers/recipe_provider.dart';
 import 'package:cider_off/presentation/screens/batch/batch_detail_screen.dart';
 import 'package:cider_off/presentation/screens/batch/create_batch_screen.dart';
-import 'package:cider_off/presentation/screens/calculator/calculator_screen.dart';
-import 'package:cider_off/presentation/screens/settings/settings_screen.dart';
 import 'package:cider_off/presentation/providers/app_settings_provider.dart';
 import 'package:cider_off/data/models/recipe_model.dart';
+
+enum BatchSortOption { pressDate, nextStepDate, bottleDate, name }
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -20,17 +20,13 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  BatchSortOption _sortOption = BatchSortOption.pressDate;
+  bool _isAscending = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        context.read<BatchProvider>().loadBatches();
-        context.read<RecipeProvider>().loadRecipes();
-      }
-    });
   }
 
   @override
@@ -39,39 +35,43 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  List<Batch> _sortBatches(List<Batch> batches) {
+    final list = List<Batch>.from(batches);
+    list.sort((a, b) {
+      int comparison = 0;
+      switch (_sortOption) {
+        case BatchSortOption.pressDate:
+          comparison = a.pressDate.compareTo(b.pressDate);
+          break;
+        case BatchSortOption.nextStepDate:
+          final aDate = a.nextStepDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bDate = b.nextStepDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+          comparison = aDate.compareTo(bDate);
+          break;
+        case BatchSortOption.bottleDate:
+          final aDate = a.nextStepDate ?? a.pressDate;
+          final bDate = b.nextStepDate ?? b.pressDate;
+          comparison = aDate.compareTo(bDate);
+          break;
+        case BatchSortOption.name:
+          comparison = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          break;
+      }
+      return _isAscending ? comparison : -comparison;
+    });
+    return list;
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<BatchProvider>();
 
+    final inProgressSorted = _sortBatches(provider.inProgressBatches);
+    final completedSorted = _sortBatches(provider.completedBatches);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('CiderOff', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calculate_outlined),
-            tooltip: 'Калькулятор сидродела',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const CalculatorScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Настройки',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const SettingsScreen(),
-                ),
-              );
-            },
-          ),
-        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: [
@@ -82,11 +82,18 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
       ),
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
+          : Column(
               children: [
-                _buildBatchList(provider.inProgressBatches, isCompleted: false),
-                _buildBatchList(provider.completedBatches, isCompleted: true),
+                _buildSortPanel(),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildBatchList(inProgressSorted, isCompleted: false),
+                      _buildBatchList(completedSorted, isCompleted: true),
+                    ],
+                  ),
+                ),
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
@@ -98,6 +105,48 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
         },
         icon: const Icon(Icons.add),
         label: const Text('Новая партия'),
+      ),
+    );
+  }
+
+  Widget _buildSortPanel() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: Theme.of(context).cardColor,
+      child: Row(
+        children: [
+          const Icon(Icons.sort, size: 20, color: Colors.amber),
+          const SizedBox(width: 8),
+          const Text('Сортировка:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<BatchSortOption>(
+                value: _sortOption,
+                isExpanded: true,
+                style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color),
+                items: const [
+                  DropdownMenuItem(value: BatchSortOption.pressDate, child: Text('По дате отжима')),
+                  DropdownMenuItem(value: BatchSortOption.nextStepDate, child: Text('По дате след. шага')),
+                  DropdownMenuItem(value: BatchSortOption.bottleDate, child: Text('По дате розлива')),
+                  DropdownMenuItem(value: BatchSortOption.name, child: Text('По названию')),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() => _sortOption = val);
+                  }
+                },
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(_isAscending ? Icons.arrow_upward : Icons.arrow_downward, size: 20, color: Colors.amber),
+            tooltip: _isAscending ? 'ASC (по возрастанию)' : 'DESC (по убыванию)',
+            onPressed: () {
+              setState(() => _isAscending = !_isAscending);
+            },
+          ),
+        ],
       ),
     );
   }
@@ -205,7 +254,7 @@ class _BatchCard extends StatelessWidget {
                           : (isCalvados ? Colors.orange.shade100 : Colors.amber.shade100),
                       label: Text(
                         isCompleted 
-                            ? (isCalvados ? 'Выдержан' : 'Розлито') 
+                            ? (isCalvados ? 'Выдержан' : 'Разлито') 
                             : (isCalvados ? 'Перегон / Бочка' : 'Бродильня'),
                         style: TextStyle(
                           color: isCompleted
@@ -261,7 +310,6 @@ class _BatchCard extends StatelessWidget {
               if (!isCompleted && (settings.showNextStepTitle || settings.showNextStepDate || settings.showDaysLeft)) ...[
                 const Divider(height: 20),
 
-                // Название следующего шага
                 if (settings.showNextStepTitle) ...[
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,7 +327,6 @@ class _BatchCard extends StatelessWidget {
 
                             Recipe? foundRecipe;
 
-                            // 1. Пробуем найти рецепт по строгому ID
                             if (batch.currentRecipeId != null && recipeProvider.recipes.isNotEmpty) {
                               final matches = recipeProvider.recipes
                                   .where((r) => r.id == batch.currentRecipeId)
@@ -289,7 +336,6 @@ class _BatchCard extends StatelessWidget {
                               }
                             }
 
-                            // 2. Фоллбэк: если по ID не нашли, ищем первый подходящий по типу (Сидр / Кальвадос)
                             if (foundRecipe == null && recipeProvider.recipes.isNotEmpty) {
                               final isCalvados = batch.type == BatchType.calvados;
                               foundRecipe = recipeProvider.recipes.firstWhere(
@@ -302,7 +348,6 @@ class _BatchCard extends StatelessWidget {
                               );
                             }
 
-                            // 3. Извлекаем название текущего шага
                             if (foundRecipe != null && foundRecipe.steps.isNotEmpty) {
                               final stepIdx = batch.currentStepIndex ?? 0;
                               if (stepIdx < foundRecipe.steps.length) {
@@ -331,7 +376,6 @@ class _BatchCard extends StatelessWidget {
                   const SizedBox(height: 4),
                 ],
 
-                // Дата выполнения
                 if (settings.showNextStepDate)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -349,7 +393,6 @@ class _BatchCard extends StatelessWidget {
                     ],
                   ),
 
-                // Осталось дней
                 if (settings.showDaysLeft && batch.daysUntilNextStep != null) ...[
                   const SizedBox(height: 4),
                   Text(
@@ -373,7 +416,25 @@ class _BatchCard extends StatelessWidget {
                 ),
                 if (settings.showContainers) ...[
                   const SizedBox(height: 4),
-                  Text('Тара: ${batch.containerType ?? "—"} (${batch.containerCount ?? 0} шт.)'),
+                  if (batch.containers.isNotEmpty) ...[
+                    Text(
+                      'Подпартии/Тара (${batch.containers.length}):',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    const SizedBox(height: 2),
+                    ...batch.containers.map((c) => Padding(
+                          padding: const EdgeInsets.only(left: 8, top: 2),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('• ${c.title} (${c.containerType})', style: const TextStyle(fontSize: 12)),
+                              Text('${c.count} шт. × ${c.containerVolumeLiters}л (${c.totalVolumeLiters.toStringAsFixed(1)}л)',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        )),
+                  ] else
+                    Text('Тара: ${batch.containerType ?? "—"} (${batch.containerCount ?? 0} шт.)'),
                 ],
               ],
             ],

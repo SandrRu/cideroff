@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../data/models/batch_history_model.dart';
 import '../../../../data/models/batch_model.dart';
-import '../../../../data/models/recipe_model.dart'; // <-- Не забудьте импортировать модель рецепта
+import '../../../../data/models/recipe_model.dart';
 
 class EditHistoryDialog extends StatefulWidget {
   final BatchHistory history;
   final Batch? batch;
-  final RecipeStep? recipeStep; // <-- Принимаем шаг рецепта
+  final RecipeStep? recipeStep;
 
   const EditHistoryDialog({
     super.key,
@@ -24,7 +24,6 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _sugarController;
   late TextEditingController _alcoholController;
-  late TextEditingController _nonFermentableSugarController;
   late TextEditingController _noteController;
   
   late DateTime _selectedTimestamp;
@@ -38,19 +37,6 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
     _alcoholController = TextEditingController(
       text: widget.history.alcoholMeasured?.toString() ?? '',
     );
-
-    double? initialNonFermentable = widget.history.nonFermentableSugarGrams;
-    
-    if ((initialNonFermentable == null || initialNonFermentable == 0) && widget.batch != null) {
-      initialNonFermentable = widget.batch?.nonFermentableSugarGrams;
-    }
-
-    _nonFermentableSugarController = TextEditingController(
-      text: initialNonFermentable != null && initialNonFermentable > 0 
-          ? initialNonFermentable.toString() 
-          : '',
-    );
-
     _noteController = TextEditingController(text: widget.history.note ?? '');
     _selectedTimestamp = widget.history.timestamp;
   }
@@ -59,7 +45,6 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
   void dispose() {
     _sugarController.dispose();
     _alcoholController.dispose();
-    _nonFermentableSugarController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -92,15 +77,18 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
     }
   }
 
+  double? _parseDouble(String text) {
+    final cleaned = text.trim().replaceAll(',', '.');
+    if (cleaned.isEmpty) return null;
+    return double.tryParse(cleaned);
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
 
-    // Определяем видимость полей на основе флагов RecipeStep
-    // Если recipeStep не передан, фоллбэк проверяет наличие сохраненных данных в истории
     final bool showSugar = widget.recipeStep?.requiresSugarMeasurement ?? (widget.history.sugarMeasured != null);
     final bool showAlcohol = widget.recipeStep?.requiresAlcoholMeasurement ?? (widget.history.alcoholMeasured != null);
-    final bool showNonFermentable = widget.recipeStep?.isBottlingStep ?? (widget.history.nonFermentableSugarGrams != null && widget.history.nonFermentableSugarGrams! > 0);
 
     return AlertDialog(
       title: const Text('Редактирование шага'),
@@ -111,7 +99,6 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Нередактируемое поле: Название шага
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -139,7 +126,6 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
               ),
               const SizedBox(height: 12),
 
-              // Нередактируемое поле: Статус / Действие
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -168,7 +154,6 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
               ),
               const SizedBox(height: 12),
 
-              // Выбор даты и времени выполнения шага
               InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () => _pickDateTime(context),
@@ -198,7 +183,6 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
               ),
               const SizedBox(height: 12),
 
-              // Поле замера сахара (если разрешено рецептом)
               if (showSugar) ...[
                 TextFormField(
                   controller: _sugarController,
@@ -211,7 +195,6 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                 const SizedBox(height: 12),
               ],
 
-              // Поле крепости/алкоголя (если разрешено рецептом)
               if (showAlcohol) ...[
                 TextFormField(
                   controller: _alcoholController,
@@ -224,20 +207,6 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                 const SizedBox(height: 12),
               ],
 
-              // Несбраживаемые сахара (только для этапа розлива/финала)
-              if (showNonFermentable) ...[
-                TextFormField(
-                  controller: _nonFermentableSugarController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Несбраживаемые сахара (г/л)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-
-              // Заметка доступна всегда
               TextFormField(
                 controller: _noteController,
                 maxLines: 2,
@@ -268,10 +237,9 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                 timestamp: _selectedTimestamp,
                 stepTitle: widget.history.stepTitle,
                 actionName: widget.history.actionName,
-                // Сохраняем введенное значение, либо оставляем старое, если поле было скрыто
-                sugarMeasured: showSugar ? double.tryParse(_sugarController.text.replaceAll(',', '.')) : widget.history.sugarMeasured,
-                alcoholMeasured: showAlcohol ? double.tryParse(_alcoholController.text.replaceAll(',', '.')) : widget.history.alcoholMeasured,
-                nonFermentableSugarGrams: showNonFermentable ? double.tryParse(_nonFermentableSugarController.text.replaceAll(',', '.')) : widget.history.nonFermentableSugarGrams,
+                sugarMeasured: showSugar ? _parseDouble(_sugarController.text) : widget.history.sugarMeasured,
+                alcoholMeasured: showAlcohol ? _parseDouble(_alcoholController.text) : widget.history.alcoholMeasured,
+                nonFermentableSugarGrams: widget.history.nonFermentableSugarGrams,
                 note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
               );
               Navigator.pop(context, updatedHistory);

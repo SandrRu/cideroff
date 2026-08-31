@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import 'batch_container_model.dart';
 
 enum BatchStatus {
   inProgress,
@@ -32,15 +33,18 @@ class Batch {
   final String? currentRecipeId;
   final int? currentStepIndex;
   final DateTime? nextStepDate;
+  final String? yeastId;     // Связь со справочником дрожжей
   
-  // Данные розлива
+  // Данные розлива и подпартий
   final String? containerType;
   final int? containerCount;
   final double? finalSugar;
   final double? finalAlcohol;
   final double? primingSugarGrams;        // Катализатор / Декстроза (г/л)
-  final double? nonFermentableSugarGrams; // Несбраживаемые сахара (ксилит, эритрит и т.д.), г/л
+  final double? nonFermentableSugarGrams; // Несбраживаемые сахара, г/л
   final double? finalSugarWithPriming;    // Расчётная сладость / Итоговый сахар (г/100мл)
+  final double? lossVolume;              // Объем осадка / потерь (л)
+  final List<BatchContainer> containers; // Список подпартий розлива
   final String notes;
 
   // --- Поля Кальвадоса (Дистилляция и Выдержка) ---
@@ -50,7 +54,7 @@ class Batch {
   final double? distillateABV;    // Крепость дистиллята (% об.)
   final double? barrelDilutedABV; // Крепость при заливке в бочку (% об.)
   final DateTime? agingStartDate; // Дата начала выдержки
-  final String? barrelNotes;      // Объем бочки, обжиг или парам. щепы
+  final String? barrelNotes;      // Параметры бочки / щепы
 
   Batch({
     String? id,
@@ -64,6 +68,7 @@ class Batch {
     this.currentRecipeId,
     this.currentStepIndex,
     this.nextStepDate,
+    this.yeastId,
     this.containerType,
     this.containerCount,
     this.finalSugar,
@@ -71,6 +76,8 @@ class Batch {
     this.primingSugarGrams,
     this.nonFermentableSugarGrams,
     this.finalSugarWithPriming,
+    this.lossVolume,
+    this.containers = const [],
     this.notes = '',
     this.rawSpiritVolume,
     this.rawSpiritABV,
@@ -94,8 +101,23 @@ class Batch {
     return DateTime.now().difference(agingStartDate!).inDays;
   }
 
-  /// Название текущего/следующего шага
-  String? get currentStepTitle => notes.isNotEmpty ? notes : null;
+  /// Общий объем разлитого сидра по всем подпартиям (л)
+  double get totalBottledVolume {
+    if (containers.isNotEmpty) {
+      return containers.fold(0.0, (sum, c) => sum + c.totalVolumeLiters);
+    }
+    return 0.0;
+  }
+
+  /// Итоговый расчетный сахар (с учетом подсластителей/декстрозы)
+  double? get calculatedFinalSweetness {
+    if (finalSugarWithPriming != null) return finalSugarWithPriming;
+    if (finalSugar != null) {
+      final nonFerm = nonFermentableSugarGrams ?? 0.0;
+      return finalSugar! + (nonFerm / 10.0);
+    }
+    return null;
+  }
 
   Batch copyWith({
     String? id,
@@ -109,6 +131,7 @@ class Batch {
     String? currentRecipeId,
     int? currentStepIndex,
     DateTime? nextStepDate,
+    String? yeastId,
     String? containerType,
     int? containerCount,
     double? finalSugar,
@@ -116,6 +139,8 @@ class Batch {
     double? primingSugarGrams,
     double? nonFermentableSugarGrams,
     double? finalSugarWithPriming,
+    double? lossVolume,
+    List<BatchContainer>? containers,
     String? notes,
     double? rawSpiritVolume,
     double? rawSpiritABV,
@@ -137,6 +162,7 @@ class Batch {
       currentRecipeId: currentRecipeId ?? this.currentRecipeId,
       currentStepIndex: currentStepIndex ?? this.currentStepIndex,
       nextStepDate: nextStepDate ?? this.nextStepDate,
+      yeastId: yeastId ?? this.yeastId,
       containerType: containerType ?? this.containerType,
       containerCount: containerCount ?? this.containerCount,
       finalSugar: finalSugar ?? this.finalSugar,
@@ -144,6 +170,8 @@ class Batch {
       primingSugarGrams: primingSugarGrams ?? this.primingSugarGrams,
       nonFermentableSugarGrams: nonFermentableSugarGrams ?? this.nonFermentableSugarGrams,
       finalSugarWithPriming: finalSugarWithPriming ?? this.finalSugarWithPriming,
+      lossVolume: lossVolume ?? this.lossVolume,
+      containers: containers ?? this.containers,
       notes: notes ?? this.notes,
       rawSpiritVolume: rawSpiritVolume ?? this.rawSpiritVolume,
       rawSpiritABV: rawSpiritABV ?? this.rawSpiritABV,
@@ -167,6 +195,7 @@ class Batch {
         'currentRecipeId': currentRecipeId,
         'currentStepIndex': currentStepIndex,
         'nextStepDate': nextStepDate?.toIso8601String(),
+        'yeastId': yeastId,
         'containerType': containerType,
         'containerCount': containerCount,
         'finalSugar': finalSugar,
@@ -174,6 +203,7 @@ class Batch {
         'primingSugarGrams': primingSugarGrams,
         'nonFermentableSugarGrams': nonFermentableSugarGrams,
         'finalSugarWithPriming': finalSugarWithPriming,
+        'lossVolume': lossVolume,
         'notes': notes,
         'rawSpiritVolume': rawSpiritVolume,
         'rawSpiritABV': rawSpiritABV,
@@ -184,7 +214,7 @@ class Batch {
         'barrelNotes': barrelNotes,
       };
 
-  factory Batch.fromJson(Map<String, dynamic> json) {
+  factory Batch.fromJson(Map<String, dynamic> json, {List<BatchContainer> containers = const []}) {
     DateTime parseDate(dynamic val) {
       if (val is String && val.isNotEmpty) {
         final parsed = DateTime.tryParse(val);
@@ -212,6 +242,7 @@ class Batch {
       currentRecipeId: json['currentRecipeId'] as String?,
       currentStepIndex: json['currentStepIndex'] as int?,
       nextStepDate: parseNullableDate(json['nextStepDate']),
+      yeastId: json['yeastId'] as String?,
       containerType: json['containerType'] as String?,
       containerCount: json['containerCount'] as int?,
       finalSugar: (json['finalSugar'] as num?)?.toDouble(),
@@ -219,6 +250,8 @@ class Batch {
       primingSugarGrams: (json['primingSugarGrams'] as num?)?.toDouble(),
       nonFermentableSugarGrams: (json['nonFermentableSugarGrams'] as num?)?.toDouble(),
       finalSugarWithPriming: (json['finalSugarWithPriming'] as num?)?.toDouble(),
+      lossVolume: (json['lossVolume'] as num?)?.toDouble(),
+      containers: containers,
       notes: json['notes'] as String? ?? '',
       rawSpiritVolume: (json['rawSpiritVolume'] as num?)?.toDouble(),
       rawSpiritABV: (json['rawSpiritABV'] as num?)?.toDouble(),
@@ -228,15 +261,5 @@ class Batch {
       agingStartDate: parseNullableDate(json['agingStartDate']),
       barrelNotes: json['barrelNotes'] as String?,
     );
-  }
-
-  /// Расчётная итоговая сладость с учётом остаточного сахара и несбраживаемых сахаров
-  double? get calculatedFinalSweetness {
-    if (finalSugarWithPriming != null) return finalSugarWithPriming;
-    if (finalSugar != null) {
-      final nonFerm = nonFermentableSugarGrams ?? 0.0;
-      return finalSugar! + (nonFerm / 10.0);
-    }
-    return null;
   }
 }

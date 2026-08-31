@@ -6,7 +6,7 @@ plugins {
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
 
 android {
-    namespace = "com.example.cideroff_app"
+    namespace = "ru.sandr.cideroff_app"
     // Явно задаем SDK 36 для совместимости с новыми AAR-библиотеками
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
@@ -21,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.cideroff_app"
+        applicationId = "ru.sandr.cideroff_app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -51,7 +51,7 @@ android {
 
 kotlin {
     compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 

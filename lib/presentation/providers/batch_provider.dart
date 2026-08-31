@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/batch_volume_calculator.dart';
 import '../../data/datasources/database_service.dart';
 import '../../data/models/batch_model.dart';
+import '../../data/models/batch_container_model.dart';
 import '../../data/models/batch_history_model.dart';
 import '../../data/models/recipe_model.dart';
 import '../../services/notification_service.dart';
@@ -38,6 +40,7 @@ class BatchProvider extends ChangeNotifier {
     required Recipe recipe,
     String notes = '',
     BatchType type = BatchType.cider,
+    String? yeastId,
     double? rawSpiritVolume,
     double? rawSpiritAbv,
     String? barrelNotes,
@@ -56,6 +59,7 @@ class BatchProvider extends ChangeNotifier {
       currentRecipeId: recipe.id,
       currentStepIndex: 0,
       nextStepDate: nextDate,
+      yeastId: yeastId,
       notes: notes,
       type: type,
       rawSpiritVolume: rawSpiritVolume,
@@ -91,6 +95,7 @@ class BatchProvider extends ChangeNotifier {
     String? note,
     String? containerType,
     int? containerCount,
+    List<BatchContainer>? containers,
     DateTime? stepDate,
     double? primingSugarGrams,
     double? nonFermentableSugarGrams,
@@ -109,7 +114,7 @@ class BatchProvider extends ChangeNotifier {
       actionName: 'Шаг выполнен',
       sugarMeasured: sugarMeasured,
       alcoholMeasured: alcoholMeasured,
-      nonFermentableSugarGrams: nonFermentableSugarGrams, // <-- Передаем несбраживаемые сахара
+      nonFermentableSugarGrams: nonFermentableSugarGrams,
       note: note,
     );
     await _db.insertHistory(history);
@@ -121,36 +126,44 @@ class BatchProvider extends ChangeNotifier {
         ? executionDate.add(Duration(days: nextStep.durationDays))
         : null;
 
-    if (isLastStep || currentStep.isBottlingStep) {
-      final updatedBatch = batch.copyWith(
-        status: isLastStep ? BatchStatus.completed : BatchStatus.inProgress,
-        currentStepIndex: isLastStep ? null : currentIndex + 1,
-        nextStepDate: isLastStep ? null : nextDate,
-        containerType: containerType,
-        containerCount: containerCount,
-        finalSugar: sugarMeasured ?? batch.initialSugar,
-        finalAlcohol: alcoholMeasured ?? 0.0,
-        primingSugarGrams: primingSugarGrams,
-        nonFermentableSugarGrams: nonFermentableSugarGrams,
-        finalSugarWithPriming: finalSugarWithPriming,
+    // Расчет потерь при наличии подпартий
+    final activeContainers = containers ?? batch.containers;
+    double? calculatedLoss;
+    if (activeContainers.isNotEmpty) {
+      calculatedLoss = BatchVolumeCalculator.calculateLossVolume(
+        totalJuiceVolume: batch.juiceVolume,
+        containers: activeContainers,
       );
-      await _db.updateBatch(updatedBatch);
+    }
 
-      if (!isLastStep && nextStep != null && nextDate != null) {
-        await _scheduleReminders(updatedBatch, nextStep, nextDate);
-      }
-    } else {
-      final nextStepIndex = currentIndex + 1;
+    // Если это самый первый шаг (Первичное брожение) и передан замер сахара,
+    // сохраняем его в initialSugar. В противном случае сохраняем его как промежуточный/финальный замер.
+    final double updatedInitialSugar = (currentIndex == 0 && sugarMeasured != null && sugarMeasured > 0)
+        ? sugarMeasured
+        : batch.initialSugar;
 
-      final updatedBatch = batch.copyWith(
-        currentStepIndex: nextStepIndex,
-        nextStepDate: nextDate,
-      );
-      await _db.updateBatch(updatedBatch);
+    final updatedBatch = batch.copyWith(
+      status: isLastStep ? BatchStatus.completed : BatchStatus.inProgress,
+      currentStepIndex: isLastStep ? null : currentIndex + 1,
+      nextStepDate: isLastStep ? null : nextDate,
+      initialSugar: updatedInitialSugar,
+      containerType: containerType ?? batch.containerType,
+      containerCount: containerCount ?? batch.containerCount,
+      containers: activeContainers,
+      lossVolume: calculatedLoss ?? batch.lossVolume,
+      finalSugar: isLastStep
+          ? (sugarMeasured ?? batch.finalSugar ?? updatedInitialSugar)
+          : batch.finalSugar,
+      finalAlcohol: alcoholMeasured ?? batch.finalAlcohol ?? 0.0,
+      primingSugarGrams: primingSugarGrams ?? batch.primingSugarGrams,
+      nonFermentableSugarGrams: nonFermentableSugarGrams ?? batch.nonFermentableSugarGrams,
+      finalSugarWithPriming: finalSugarWithPriming ?? batch.finalSugarWithPriming,
+    );
 
-      if (nextStep != null && nextDate != null) {
-        await _scheduleReminders(updatedBatch, nextStep, nextDate);
-      }
+    await _db.updateBatch(updatedBatch);
+
+    if (!isLastStep && nextStep != null && nextDate != null) {
+      await _scheduleReminders(updatedBatch, nextStep, nextDate);
     }
 
     await loadBatches();

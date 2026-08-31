@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart'; // <-- Добавлен пропущенный импорт Uuid
 import '../../data/datasources/database_service.dart';
 import '../../data/models/recipe_model.dart';
 
@@ -35,6 +36,23 @@ class RecipeProvider extends ChangeNotifier {
   Future<void> toggleFavorite(Recipe recipe) async {
     final updated = recipe.copyWith(isFavorite: !recipe.isFavorite);
     await _db.insertRecipe(updated);
+    await loadRecipes();
+  }
+
+  /// Дублирование любого (в т.ч. системного) рецепта в пользовательский для редактирования
+  Future<void> duplicateAsCustom(Recipe sourceRecipe, {String? newTitle}) async {
+    final ruTitle = sourceRecipe.getTitle('ru');
+    final titleText = newTitle?.trim().isNotEmpty == true 
+        ? newTitle!.trim() 
+        : '$ruTitle (Копия)';
+
+    final newRecipe = sourceRecipe.copyWith(
+      id: const Uuid().v4(),
+      title: {'ru': titleText, 'en': '${sourceRecipe.getTitle('en')} (Copy)'},
+      isCustom: true,
+      isFavorite: false,
+    );
+    await _db.insertRecipe(newRecipe);
     await loadRecipes();
   }
 }

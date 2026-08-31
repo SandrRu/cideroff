@@ -7,8 +7,9 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:cider_off/presentation/providers/app_settings_provider.dart';
 import 'package:cider_off/presentation/providers/batch_provider.dart';
 import 'package:cider_off/presentation/providers/recipe_provider.dart';
+import 'package:cider_off/presentation/providers/yeast_provider.dart';
 import 'package:cider_off/core/utils/test_data_seeder.dart';
-import 'package:cider_off/presentation/screens/main/main_screen.dart';
+import 'package:cider_off/presentation/screens/main/main_shell_screen.dart';
 import 'package:cider_off/services/notification_service.dart';
 
 void main() async {
@@ -23,7 +24,7 @@ void main() async {
   // Инициализация push-уведомлений и таймзон
   await NotificationService.instance.init();
 
-  // Заполнение базы тестовыми данными
+  // Заполнение базы тестовыми данными и дрожжами
   await TestDataSeeder.seedDatabase();
 
   runApp(const CiderOffApp());
@@ -39,6 +40,7 @@ class CiderOffApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppSettingsProvider()),
         ChangeNotifierProvider(create: (_) => BatchProvider()),
         ChangeNotifierProvider(create: (_) => RecipeProvider()),
+        ChangeNotifierProvider(create: (_) => YeastProvider()),
       ],
       child: Consumer<AppSettingsProvider>(
         builder: (context, settings, child) {
@@ -49,7 +51,6 @@ class CiderOffApp extends StatelessWidget {
               useMaterial3: true,
               colorSchemeSeed: Colors.amber,
               brightness: Brightness.light,
-              // Настройка контрастности полей ввода для светлой темы
               inputDecorationTheme: const InputDecorationTheme(
                 labelStyle: TextStyle(color: Colors.black87),
                 hintStyle: TextStyle(color: Colors.black45),
@@ -87,7 +88,7 @@ class CiderOffApp extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            home: const MainScreen(),
+            home: const MainShellScreen(),
           );
         },
       ),
