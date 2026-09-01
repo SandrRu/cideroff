@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/app_settings_provider.dart'; // Укажите ваш путь к провайдеру
+import '../../providers/app_settings_provider.dart';
 
 class BatchCardSettingsScreen extends StatelessWidget {
   const BatchCardSettingsScreen({super.key});
@@ -49,7 +49,7 @@ class BatchCardSettingsScreen extends StatelessWidget {
           ),
           CheckboxListTile(
             activeColor: Colors.amber,
-            title: const Text('Статус-бэдж (Бродильня / Выдержан)'),
+            title: const Text('Статус-бейдж (Бродильня / Выдержан)'),
             value: cardSettings.showTypeBadge,
             onChanged: (val) {
               if (val != null) {

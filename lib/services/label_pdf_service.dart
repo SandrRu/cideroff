@@ -39,7 +39,6 @@ class LabelPdfService {
     pdf.addPage(
       pw.Page(
         pageFormat: pageFormat,
-        // Устанавливаем базовую тему со шрифтом Roboto для всей страницы
         theme: pw.ThemeData.withFont(
           base: fontRegular,
           bold: fontBold,
@@ -57,7 +56,10 @@ class LabelPdfService {
                 // Название партии
                 pw.Text(
                   batch.name,
-                  style: pw.TextStyle(font: fontBold, fontSize: 10),
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 10,
+                  ),
                   maxLines: 1,
                 ),
                 pw.Divider(thickness: 0.5),
@@ -65,11 +67,11 @@ class LabelPdfService {
                 // Характеристики
                 pw.Text(
                   'Сорт: ${batch.appleVariety}',
-                  style: pw.TextStyle(font: fontRegular, fontSize: 7),
+                  style: const pw.TextStyle(fontSize: 7),
                 ),
                 pw.Text(
                   'Дата: $formattedDate',
-                  style: pw.TextStyle(font: fontRegular, fontSize: 7),
+                  style: const pw.TextStyle(fontSize: 7),
                 ),
 
                 pw.Row(
@@ -77,11 +79,17 @@ class LabelPdfService {
                   children: [
                     pw.Text(
                       'Крепость: ${batch.finalAlcohol ?? 0}% об.',
-                      style: pw.TextStyle(font: fontBold, fontSize: 7),
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 7,
+                      ),
                     ),
                     pw.Text(
                       'Сладость: $sugarText',
-                      style: pw.TextStyle(font: fontBold, fontSize: 7),
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 7,
+                      ),
                     ),
                   ],
                 ),

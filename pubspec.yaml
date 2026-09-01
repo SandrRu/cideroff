@@ -12,49 +12,45 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-# База данных и состояние
+  # База данных и состояние
   provider: ^6.1.2
-  path_provider: ^2.1.2
+  path_provider: ^2.1.5
 
   # Генерация PDF и печать этикеток
-  pdf: ^3.10.8
-  printing: ^5.13.0
+  pdf: ^3.13.0
+  printing: ^5.15.0
 
-  # Напоминания и календарь
-  device_calendar: ^4.3.2
- # Пуш уведомления 
-  flutter_local_notifications: ^17.2.3
-  # flutter_local_notifications: ^17.1.2
-  timezone: ^0.9.2
-  flutter_timezone: ^2.0.0
-  # Импорт/Экспорт, работы с файлами
-  share_plus: ^10.0.0
-  file_picker: ^8.1.4
-  uuid: ^4.3.3
-  intl: ^0.20.3
+  # Пуш уведомления и работа со временем
+  flutter_local_notifications: ^22.3.0
+  timezone: ^0.11.1
+  flutter_timezone: ^5.1.0
+
+  # Импорт/Экспорт, работа с файлами
+  share_plus: ^13.3.0
+  file_picker: ^12.1.3
+  uuid: ^4.5.1
+  intl: ^0.20.2
   
   # Построение наглядных графиков
-  fl_chart: ^0.68.0
+  fl_chart: ^1.2.0
   
-  # ... остальные зависимости ...
-  sqflite: ^2.3.3+1
-  sqflite_common_ffi: ^2.3.3
-  sqlite3: ^2.4.0
+  # База данных SQLite
+  sqflite: ^2.4.1
+  sqflite_common_ffi: ^2.4.2+1
+  sqlite3: ^3.5.2
   path: ^1.9.0
 
-  webdav_client: ^1.1.2  # Клиент для работы по протоколу WebDAV
+  # Google Drive
+  google_sign_in: ^7.2.0
+  googleapis: ^17.0.0
+  extension_google_sign_in_as_googleapis_auth: ^3.0.0
 
-  google_sign_in: ^6.2.1
-  googleapis: ^13.0.0
-  extension_google_sign_in_as_googleapis_auth: ^2.0.1
- 
-  
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
-  build_runner: ^2.4.8
-  flutter_launcher_icons: ^0.13.1
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.14
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
@@ -69,10 +65,7 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/images/icon.png"
   remove_alpha_ios: true
-  # Для Android 8.0+ (adaptive icons) можно задать фон:
-  # adaptive_icon_background: "#FFFFFF"
-  # adaptive_icon_foreground: "assets/images/icon_foreground.png    
   windows:
     generate: true
     image_path: "assets/images/icon.png"
-    icon_size: 256 #
+    icon_size: 256

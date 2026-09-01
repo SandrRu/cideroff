@@ -6,7 +6,6 @@ import '../../../core/utils/hydrometry_calculator.dart';
 import '../../../data/models/batch_model.dart';
 import '../../../data/models/batch_container_model.dart';
 import '../../../data/models/recipe_model.dart';
-import '../../../data/models/yeast_model.dart';
 import '../../providers/batch_provider.dart';
 import '../../providers/recipe_provider.dart';
 import '../../providers/yeast_provider.dart';
@@ -261,7 +260,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
       ),
     );
 
-    if (!_isContainersInitialized && batch.containers.isNotEmpty) {
+    if (!_isContainersInitialized) {
       _draftContainers = List.from(batch.containers);
       _isContainersInitialized = true;
     }
@@ -401,12 +400,14 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                         'Тара',
                         '${batch.containerType} (${batch.containerCount ?? 0} шт.)',
                       ),
-                    if (batch.status == BatchStatus.completed) ...[
+                    if (batch.status == BatchStatus.completed || batch.containers.isNotEmpty) ...[
                       const Divider(),
-                      _infoRow('Остаточный сахар', '${batch.finalSugar ?? 0} г/100мл'),
+                      if (batch.finalSugar != null)
+                        _infoRow('Остаточный сахар', '${batch.finalSugar ?? 0} г/100мл'),
                       if (batch.primingSugarGrams != null && batch.primingSugarGrams! > 0)
                         _infoRow('Декстроза', '${batch.primingSugarGrams} г/л'),
-                      _infoRow('Крепость', '${batch.finalAlcohol ?? 0}% об.'),
+                      if (batch.finalAlcohol != null)
+                        _infoRow('Крепость', '${batch.finalAlcohol ?? 0}% об.'),
                       if (batch.lossVolume != null)
                         _infoRow('Осадок / Потери', '${batch.lossVolume!.toStringAsFixed(1)} л'),
                       
@@ -696,13 +697,25 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                         await batchProvider.updateBatch(updatedYeastBatch);
                                       }
 
+                                      // Если в истории/заметках или шаге создаются под партии, 
+                                      // формируем строку подпартий для добавления в заметку истории
+                                      String stepNote = _noteController.text.trim();
+                                      if (currentStep.isBottlingStep && _draftContainers.isNotEmpty) {
+                                        final containerDetails = _draftContainers
+                                            .map((c) => '${c.title} (${c.containerType}, ${c.count} шт × ${c.containerVolumeLiters}л)')
+                                            .join('; ');
+                                        stepNote = stepNote.isEmpty
+                                            ? 'Разлито по подпартиям: $containerDetails'
+                                            : '$stepNote (Подпартии: $containerDetails)';
+                                      }
+
                                       await batchProvider.completeCurrentStep(
                                         batch: batch,
                                         recipe: currentRecipe!,
                                         sugarMeasured: baseSugar,
                                         alcoholMeasured: _parseDouble(_alcoholController.text),
-                                        note: _noteController.text,
-                                        containers: currentStep.isBottlingStep ? _draftContainers : null,
+                                        note: stepNote,
+                                        containers: currentStep.isBottlingStep ? _draftContainers : _draftContainers,
                                         stepDate: _selectedStepDate,
                                         primingSugarGrams: primingGrams,
                                         finalSugarWithPriming: baseSugar,
@@ -788,10 +801,10 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                 const Divider(),
                 ListTile(
                   leading: const Icon(Icons.scale_outlined, color: Colors.amber),
-                  title: const Text('Расчётная сладость розлива'),
+                  title: const Text('Рассчётная сладость розлива'),
                   subtitle: Text(
                     'Замер сахара: ${currentSugar.toStringAsFixed(1)} г/100мл\n'
-                    'Декстроза (${primingGrams} г/л) → полностью сбродит в CO₂\n'
+                    'Декстроза ($primingGrams г/л) → полностью сбродит в CO₂\n'
                     'Итоговая базовая сладость: ${currentSugar.toStringAsFixed(1)} г/100мл',
                   ),
                 ),

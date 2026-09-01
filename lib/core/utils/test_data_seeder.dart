@@ -38,6 +38,13 @@ class TestDataSeeder {
           isCustom: false,
         ),
         Yeast(
+          id: 'yeast_safcider_as2',
+          name: 'Fermentis SafCider AS-2',
+          category: 'Cider',
+          description: 'Дают свежий ароматический профиль с приятными джемовыми тонами яблочного пюре, сладостью и округлостью во вкусе. Потребляют яблочную кислоту до 0,9 г/л. Это помогает снизить общую кислотность сусла и смягчить вкус напитка.',
+          isCustom: false,
+        ),
+        Yeast(
           id: 'yeast_lalvin_ec1118',
           name: 'Lalvin EC-1118',
           category: 'Universal / Calvados',

@@ -39,18 +39,24 @@ class ExportImportService {
 
     final jsonString = jsonEncode(backupData);
     final fileName = 'CiderOff_Backup_${DateTime.now().millisecondsSinceEpoch}.ciderbak';
+    final bytes = utf8.encode(jsonString);
 
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
-      final outputFile = await FilePicker.platform.saveFile(
+      final outputFile = await FilePicker.saveFile(
         dialogTitle: 'Сохранить резервную копию',
         fileName: fileName,
+        bytes: bytes,
         type: FileType.custom,
         allowedExtensions: ['ciderbak'],
       );
       
       if (outputFile != null) {
-        final file = File(outputFile);
-        await file.writeAsString(jsonString);
+        final filePath = outputFile.toFilePath();
+        final file = File(filePath);
+
+        if (!await file.exists() || await file.length() == 0) {
+          await file.writeAsString(jsonString);
+        }
       }
     } else {
       final tempDir = await getTemporaryDirectory();
@@ -67,9 +73,7 @@ class ExportImportService {
 
   /// Восстановление базы данных из файла .ciderbak / .json
   Future<bool> importFullBackup() async {
-    // На мобильных (особенно Android) используем FileType.any,
-    // чтобы системный проводник не делал .ciderbak файлы серыми.
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: Platform.isAndroid || Platform.isIOS 
           ? FileType.any 
           : FileType.custom,
@@ -78,53 +82,12 @@ class ExportImportService {
           : ['ciderbak', 'json'],
     );
 
-    if (result == null || result.files.single.path == null) return false;
+    if (result == null || result.isEmpty) return false;
 
-    final filePath = result.files.single.path!;
-    final lowerPath = filePath.toLowerCase();
+    final filePath = result.first.path;
+    if (filePath == null || filePath.isEmpty) return false;
 
-    // Явная проверка расширения файла
-    if (!lowerPath.endsWith('.ciderbak') && !lowerPath.endsWith('.json')) {
-      throw const FormatException('Выберите файл с расширением .ciderbak или .json');
-    }
-
-    final file = File(filePath);
-    final content = await file.readAsString();
-    final Map<String, dynamic> data = jsonDecode(content);
-
-    if (data['app'] != 'CiderOff') {
-      throw const FormatException('Неверный формат файла резервной копии');
-    }
-
-    // 1. Восстанавливаем рецепты
-    if (data['recipes'] != null) {
-      for (var item in data['recipes']) {
-        await _db.insertRecipe(Recipe.fromJson(item));
-      }
-    }
-
-    // 2. Восстанавливаем партии
-    if (data['batches'] != null) {
-      for (var item in data['batches']) {
-        await _db.insertBatch(Batch.fromJson(item));
-      }
-    }
-
-    // 3. Восстанавливаем историю всех замеров и пройденных шагов
-    if (data['history'] != null) {
-      for (var item in data['history']) {
-        await _db.insertHistory(BatchHistory.fromJson(item));
-      }
-    }
-
-    // 4. Восстанавливаем макеты этикеток
-    if (data['templates'] != null) {
-      for (var item in data['templates']) {
-        await _db.insertLabelTemplate(LabelTemplate.fromJson(item));
-      }
-    }
-
-    return true;
+    return await importBackupFromFile(filePath);
   }
 
   // --- ИМПОРТ И ЭКСПОРТ РЕЦЕПТОВ ---
@@ -139,23 +102,28 @@ class ExportImportService {
 
     final jsonString = jsonEncode(recipeData);
     
-    // Юникод-регулярка, защищающая кириллицу от превращения в "_"
     final safeTitle = recipe
         .getTitle('ru')
-        .replaceAll(RegExp(r'[^\p{L}\p{N}\s\-]', unicode: true), '_');
+        .replaceAll(RegExp(r'[^\w\s\-\u0400-\u04FF]'), '_');
     final fileName = 'Recipe_$safeTitle.ciderrecipe';
+    final bytes = utf8.encode(jsonString);
 
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
-      final outputFile = await FilePicker.platform.saveFile(
+      final outputFile = await FilePicker.saveFile(
         dialogTitle: 'Сохранить рецепт',
         fileName: fileName,
+        bytes: bytes,
         type: FileType.custom,
         allowedExtensions: ['ciderrecipe'],
       );
       
       if (outputFile != null) {
-        final file = File(outputFile);
-        await file.writeAsString(jsonString);
+        final filePath = outputFile.toFilePath();
+        final file = File(filePath);
+
+        if (!await file.exists() || await file.length() == 0) {
+          await file.writeAsString(jsonString);
+        }
       }
     } else {
       final tempDir = await getTemporaryDirectory();
@@ -172,7 +140,7 @@ class ExportImportService {
 
   /// Импорт рецепта из файла .ciderrecipe / .json
   Future<Recipe?> importRecipe() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: Platform.isAndroid || Platform.isIOS 
           ? FileType.any 
           : FileType.custom,
@@ -181,12 +149,12 @@ class ExportImportService {
           : ['ciderrecipe', 'json'],
     );
 
-    if (result == null || result.files.single.path == null) return null;
+    if (result == null || result.isEmpty) return null;
 
-    final filePath = result.files.single.path!;
+    final filePath = result.first.path;
+    if (filePath == null || filePath.isEmpty) return null;
+
     final lowerPath = filePath.toLowerCase();
-
-    // Проверка расширения файла рецепта
     if (!lowerPath.endsWith('.ciderrecipe') && !lowerPath.endsWith('.json')) {
       throw const FormatException('Выберите файл с расширением .ciderrecipe или .json');
     }
@@ -229,8 +197,13 @@ class ExportImportService {
     return jsonEncode(backupData);
   }
 
-  /// Импорт бэкапа по прямому пути к файлу (нужно для облака)
+  /// Импорт бэкапа по прямому пути к файлу
   Future<bool> importBackupFromFile(String filePath) async {
+    final lowerPath = filePath.toLowerCase();
+    if (!lowerPath.endsWith('.ciderbak') && !lowerPath.endsWith('.json')) {
+      throw const FormatException('Выберите файл с расширением .ciderbak или .json');
+    }
+
     final file = File(filePath);
     if (!await file.exists()) return false;
     
@@ -241,7 +214,6 @@ class ExportImportService {
       throw const FormatException('Неверный формат файла резервной копии');
     }
 
-    // Восстановление данных в БД (логика аналогична текущему importFullBackup)
     if (data['recipes'] != null) {
       for (var item in data['recipes']) {
         await _db.insertRecipe(Recipe.fromJson(item));

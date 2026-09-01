@@ -31,16 +31,16 @@ subprojects {
         }
     }
 
-    // Выравниваем Java 1.8 без использования options.release
+    // Выравниваем Java на 17
     tasks.withType(JavaCompile::class.java).configureEach {
-        sourceCompatibility = "1.8"
-        targetCompatibility = "1.8"
+        sourceCompatibility = "17"
+        targetCompatibility = "17"
     }
 
-    // Выравниваем Kotlin JVM Target на 1.8
+    // Выравниваем Kotlin JVM Target на 17
     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
 }

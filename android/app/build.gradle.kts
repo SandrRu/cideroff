@@ -3,19 +3,18 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
 
 android {
     namespace = "ru.sandr.cideroff_app"
-    // Явно задаем SDK 36 для совместимости с новыми AAR-библиотеками
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        // Включаем desugaring
+        // Включаем desugaring для поддержки новых возможностей Java на старых устройствах
         isCoreLibraryDesugaringEnabled = true
 
-        // Приводим версии Java к 17 (под JVM_17)
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -60,5 +59,6 @@ flutter {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    // Версия 2.1.5 перекрывает минимально требуемую 2.1.4 для flutter_local_notifications
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }

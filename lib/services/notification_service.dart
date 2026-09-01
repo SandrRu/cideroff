@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -18,15 +19,14 @@ class NotificationService {
   Future<void> init() async {
     if (!Platform.isAndroid && !Platform.isIOS) return;
 
-    // Инициализируем базы часовых поясов
     tz.initializeTimeZones();
     
-    // Автоматическое определение локальной часовой зоны через IANA-имя
     try {
-      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      final dynamic timeZoneResult = await FlutterTimezone.getLocalTimezone();
+      final String timeZoneName = timeZoneResult.toString();
       tz.setLocalLocation(tz.getLocation(timeZoneName));
     } catch (e) {
-      // Фолбэк на UTC, если системная часовая зона не нашлась в базе tz
+      debugPrint('Ошибка определения таймзоны, используем UTC fallback: $e');
       tz.setLocalLocation(tz.getLocation('UTC'));
     }
 
@@ -42,9 +42,8 @@ class NotificationService {
       iOS: iosInitSettings,
     );
 
-    await flutterLocalNotificationsPlugin.initialize(initSettings);
+    await flutterLocalNotificationsPlugin.initialize(settings: initSettings);
 
-    // Запрос разрешений для Android 13+
     final androidImplementation = flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     if (androidImplementation != null) {
@@ -62,13 +61,13 @@ class NotificationService {
     if (!Platform.isAndroid && !Platform.isIOS) return;
     if (scheduledDate.isBefore(DateTime.now())) return;
 
-    try {
+  try {
       await flutterLocalNotificationsPlugin.zonedSchedule(
-        id,
-        title,
-        body,
-        tz.TZDateTime.from(scheduledDate, tz.local),
-        const NotificationDetails(
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: tz.TZDateTime.from(scheduledDate, tz.local),
+        notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             'batch_reminders',
             'Напоминания о партиях',
@@ -80,17 +79,22 @@ class NotificationService {
           iOS: DarwinNotificationDetails(),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
       );
     } catch (e) {
-      print('Ошибка при планировании уведомления: $e');
+      debugPrint('Ошибка при планировании уведомления: $e');
     }
   }
 
-  /// Отмена уведомления
+/// Отмена уведомления по ID
   Future<void> cancelNotification(int id) async {
     if (!Platform.isAndroid && !Platform.isIOS) return;
-    await flutterLocalNotificationsPlugin.cancel(id);
+    // Передача именованного параметра id: id для v22.x
+    await flutterLocalNotificationsPlugin.cancel(id: id);
+  }
+
+  /// Отмена всех запланированных уведомлений
+  Future<void> cancelAllNotifications() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    await flutterLocalNotificationsPlugin.cancelAll();
   }
 }

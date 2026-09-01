@@ -6,7 +6,7 @@ class BatchContainer {
   final String title;                    // Название подпартии / тары (напр. "Сухой бугель", "Сладкий кег")
   final String? sweetenerType;            // Тип подсластителя (Ксилит, Эритрит, Сорбитол, Сок и т.д.)
   final double sweetenerAmountGramsPerLiter; // Количество подсластителя (г/л)
-  final String containerType;            // Тип тары (Бугель, Кроннен, ПЭТ, Кег)
+  final String containerType;            // Тип тары (Бугель, Кронен, ПЭТ, Кег)
   final double containerVolumeLiters;    // Объем одной емкости (л)
   final int count;                       // Количество емкостей (шт)
 
@@ -68,8 +68,8 @@ class BatchContainer {
       };
 
   factory BatchContainer.fromJson(Map<String, dynamic> json) => BatchContainer(
-        id: json['id'] as String,
-        batchId: json['batchId'] as String,
+        id: json['id'] as String? ?? const Uuid().v4(),
+        batchId: json['batchId'] as String? ?? '',
         title: json['title'] as String? ?? 'Тара',
         sweetenerType: json['sweetenerType'] as String?,
         sweetenerAmountGramsPerLiter:

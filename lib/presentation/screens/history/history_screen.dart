@@ -3,11 +3,12 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/datasources/database_service.dart';
+import '../../../data/models/batch_container_model.dart';
 import '../../../data/models/batch_history_model.dart';
 import '../../../data/models/batch_model.dart';
-import '../../../data/models/recipe_model.dart'; // <-- Импортируем модель рецепта
+import '../../../data/models/recipe_model.dart';
 import '../../providers/batch_provider.dart';
-import '../../providers/recipe_provider.dart'; // <-- Импортируем провайдер рецептов
+import '../../providers/recipe_provider.dart';
 import 'widgets/edit_history_dialog.dart';
 import 'widgets/fermentation_chart.dart';
 
@@ -22,6 +23,7 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   void _refresh() {
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -71,9 +73,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 final isFirst = index == 0;
                 final isLast = index == historyList.length - 1;
 
-                final isBottlingOrLater = item.actionName.contains('Завершение') ||
+                final isBottlingStep = item.actionName.contains('Завершение') ||
                     item.actionName.contains('розлив') ||
-                    item.stepTitle.toLowerCase().contains('розлив');
+                    item.stepTitle.toLowerCase().contains('розлив') ||
+                    item.containers.isNotEmpty;
+
+                final effectiveContainers = item.containers.isNotEmpty
+                    ? item.containers
+                    : (isBottlingStep && batch != null ? batch.containers : <BatchContainer>[]);
 
                 double? calculatedSweetness = batch?.finalSugarWithPriming;
                 if (calculatedSweetness == null &&
@@ -82,6 +89,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     item.nonFermentableSugarGrams! > 0) {
                   calculatedSweetness = item.sugarMeasured! + (item.nonFermentableSugarGrams! / 10.0);
                 }
+                calculatedSweetness ??= item.sugarMeasured;
 
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,7 +112,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         ),
                         Container(
                           width: 2,
-                          height: 60,
+                          height: effectiveContainers.isNotEmpty ? 120 : 60,
                           color: isLast ? Colors.transparent : Colors.amber.shade300,
                         ),
                       ],
@@ -150,7 +158,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                         constraints: const BoxConstraints(),
                                         padding: const EdgeInsets.all(4),
                                         onPressed: () async {
-                                          // Ищем соответствующий RecipeStep в рецепте партии по названию шага
                                           RecipeStep? matchedStep;
                                           if (batch?.currentRecipeId != null) {
                                             try {
@@ -161,23 +168,46 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                               matchedStep = recipe.steps.firstWhere(
                                                 (s) => s.getTitle('ru') == item.stepTitle,
                                               );
-                                            } catch (_) {
-                                              // Если рецепт не найден или название не совпало, оставляем null
-                                            }
+                                            } catch (_) {}
                                           }
 
-                                          final updatedHistory = await showDialog<BatchHistory>(
+                                          final editResult = await showDialog<EditHistoryDialogResult>(
                                             context: context,
                                             builder: (_) => EditHistoryDialog(
                                               history: item,
                                               batch: batch,
-                                              recipeStep: matchedStep, // Передаем найденный шаг рецепта
+                                              recipeStep: matchedStep,
                                             ),
                                           );
-                                          if (updatedHistory != null && context.mounted) {
-                                            await context
-                                                .read<BatchProvider>()
-                                                .updateBatchHistory(updatedHistory);
+
+                                          if (!mounted) return;
+
+                                          if (editResult != null) {
+                                            final batchProvider = context.read<BatchProvider>();
+                                            await batchProvider.updateBatchHistory(editResult.history);
+
+                                            if (batch != null) {
+                                              Batch updatedBatch = batch;
+                                              bool needsBatchUpdate = false;
+
+                                              if (isBottlingStep) {
+                                                updatedBatch = updatedBatch.copyWith(
+                                                  containers: editResult.history.containers,
+                                                );
+                                                needsBatchUpdate = true;
+                                              }
+
+                                              if (editResult.yeastId != batch.yeastId) {
+                                                updatedBatch = updatedBatch.copyWith(
+                                                  yeastId: editResult.yeastId,
+                                                );
+                                                needsBatchUpdate = true;
+                                              }
+
+                                              if (needsBatchUpdate) {
+                                                await batchProvider.updateBatch(updatedBatch);
+                                              }
+                                            }
                                             _refresh();
                                           }
                                         },
@@ -209,7 +239,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                               ],
                                             ),
                                           );
-                                          if (confirm == true && context.mounted) {
+
+                                          if (!mounted) return;
+
+                                          if (confirm == true) {
                                             await context.read<BatchProvider>().deleteBatchHistory(item.id);
                                             _refresh();
                                           }
@@ -229,7 +262,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               ),
                               if (item.sugarMeasured != null ||
                                   item.alcoholMeasured != null ||
-                                  (isBottlingOrLater && calculatedSweetness != null)) ...[
+                                  (isBottlingStep && calculatedSweetness != null && effectiveContainers.isEmpty)) ...[
                                 const SizedBox(height: 8),
                                 Wrap(
                                   spacing: 12,
@@ -245,7 +278,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                         visualDensity: VisualDensity.compact,
                                         label: Text('Спирт: ${item.alcoholMeasured}% об.'),
                                       ),
-                                    if (isBottlingOrLater && calculatedSweetness != null)
+                                    if (isBottlingStep && calculatedSweetness != null && effectiveContainers.isEmpty)
                                       Chip(
                                         backgroundColor: Colors.amber.shade100,
                                         visualDensity: VisualDensity.compact,
@@ -260,6 +293,80 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   ],
                                 ),
                               ],
+
+                              if (effectiveContainers.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Разлитые подпартии:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Colors.amber.shade900,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Column(
+                                  children: effectiveContainers.map((container) {
+                                    final baseSugar = item.sugarMeasured ?? batch?.finalSugar ?? 0.0;
+                                    final sweetenerGramsPer100ml = container.sweetenerAmountGramsPerLiter / 10.0;
+                                    final totalSweetness = baseSugar + sweetenerGramsPer100ml;
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 6),
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.amber.shade50.withOpacity(0.5),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.amber.shade200),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '${container.title} (${container.containerType})',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 13,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                Text(
+                                                  '${container.count} шт × ${container.containerVolumeLiters}л (${container.totalVolumeLiters.toStringAsFixed(1)}л)'
+                                                  '${container.sweetenerType != null && container.sweetenerAmountGramsPerLiter > 0 ? ' • ${container.sweetenerType}: ${container.sweetenerAmountGramsPerLiter} г/л' : ''}',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.grey.shade700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: Colors.amber.shade200,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              'Сладость: ${totalSweetness.toStringAsFixed(1)} г/100мл',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.amber.shade900,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+
                               if (item.note != null && item.note!.isNotEmpty) ...[
                                 const SizedBox(height: 6),
                                 Text(

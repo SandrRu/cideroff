@@ -96,11 +96,8 @@ class ContainersInlineList extends StatelessWidget {
             ),
           )
         else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: containers.length,
-            itemBuilder: (context, index) {
+          Column(
+            children: List.generate(containers.length, (index) {
               final c = containers[index];
               final hasSweetener = c.sweetenerType != null && c.sweetenerAmountGramsPerLiter > 0;
 
@@ -134,7 +131,7 @@ class ContainersInlineList extends StatelessWidget {
                   ),
                 ),
               );
-            },
+            }),
           ),
         const SizedBox(height: 8),
 

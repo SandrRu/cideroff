@@ -10,7 +10,8 @@ class HydrometryCalculator {
   /// Перевод SG в Brix
   static double sgToBrix(double sg) {
     if (sg <= 1.000) return 0.0;
-    return (((182.4601 * sg - 775.6821) * sg + 1262.7794) * sg - 669.5622);
+    final brix = (((182.4601 * sg - 775.6821) * sg + 1262.7794) * sg - 669.5622);
+    return brix < 0 ? 0.0 : double.parse(brix.toStringAsFixed(2));
   }
 
   /// Конвертация Brix в Граммы сахара на 100 мл
@@ -50,7 +51,7 @@ class HydrometryCalculator {
     return double.parse(sugarGram.toStringAsFixed(2));
   }
 
-  /// Точный расчет крепости ABV (%) по значениям начального и конечного сахара/Brix
+  /// Точный расчет крепости ABV (%) по значениям начального и конечного сахара (в г/100мл или Brix)
   static double calculateAbvFromHydrometer(double initialSugar, double finalSugar, {double factor = 0.47}) {
     if (initialSugar <= finalSugar) return 0.0;
     final ogSg = brixToSg(initialSugar);

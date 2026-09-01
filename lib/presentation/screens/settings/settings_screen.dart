@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../services/export_import_service.dart';
-import '../../../services/cloud_sync_service.dart';
 import '../../../services/google_drive_sync_service.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/batch_provider.dart';
@@ -24,26 +23,10 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
-  bool _calendarSyncEnabled = true;
-
-  final _webdavUrlController = TextEditingController();
-  final _webdavUsernameController = TextEditingController();
-  final _webdavPasswordController = TextEditingController();
-
-  bool _isUploading = false;
-  bool _isDownloading = false;
 
   // Состояние синхронизации Google Drive
   bool _isGoogleDriveUploading = false;
   bool _isGoogleDriveDownloading = false;
-
-  @override
-  void dispose() {
-    _webdavUrlController.dispose();
-    _webdavUsernameController.dispose();
-    _webdavPasswordController.dispose();
-    super.dispose();
-  }
 
   Future<void> _uploadToGoogleDrive() async {
     setState(() => _isGoogleDriveUploading = true);
@@ -232,84 +215,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const Divider(),
 
-          // Раздел: Облачная синхронизация WebDAV
-          _buildSectionHeader('Синхронизация WebDAV'),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _webdavUrlController,
-                  decoration: const InputDecoration(
-                    labelText: 'URL сервера WebDAV',
-                    hintText: 'https://example.com/remote.php/webdav/',
-                    prefixIcon: Icon(Icons.cloud_outlined),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _webdavUsernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Логин',
-                    prefixIcon: Icon(Icons.person_outline),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _webdavPasswordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Пароль',
-                    prefixIcon: Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: _isUploading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                              )
-                            : const Icon(Icons.cloud_upload_outlined),
-                        label: Text(_isUploading ? 'Выгрузка...' : 'Выгрузить в облако'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.amber,
-                          foregroundColor: Colors.black,
-                        ),
-                        onPressed: (_isUploading || _isDownloading) ? null : _uploadToWebDav,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: _isDownloading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.cloud_download_outlined),
-                        label: Text(_isDownloading ? 'Загрузка...' : 'Скачать из облака'),
-                        onPressed: (_isUploading || _isDownloading) ? null : _downloadFromWebDav,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const Divider(),
-
           // Раздел: Напоминания
-          _buildSectionHeader('Напоминания и Календарь'),
+          _buildSectionHeader('Напоминания'),
           SwitchListTile(
             secondary: const Icon(Icons.notifications_active_outlined, color: Colors.amber),
             title: const Text('Push-уведомления'),
@@ -319,18 +226,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (val) {
               setState(() {
                 _notificationsEnabled = val;
-              });
-            },
-          ),
-          SwitchListTile(
-            secondary: const Icon(Icons.calendar_today_outlined, color: Colors.amber),
-            title: const Text('Синхронизация с Календарем'),
-            subtitle: const Text('Добавлять события в системный календарь'),
-            value: _calendarSyncEnabled,
-            activeThumbColor: Colors.amber,
-            onChanged: (val) {
-              setState(() {
-                _calendarSyncEnabled = val;
               });
             },
           ),
@@ -441,75 +336,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  bool _initWebDavClient() {
-    final url = _webdavUrlController.text.trim();
-    final username = _webdavUsernameController.text.trim();
-    final password = _webdavPasswordController.text;
-
-    if (url.isEmpty || username.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните URL, логин и пароль WebDAV')),
-      );
-      return false;
-    }
-
-    CloudSyncService().init(
-      uri: url,
-      user: username,
-      password: password,
-    );
-    return true;
-  }
-
-  Future<void> _uploadToWebDav() async {
-    if (!_initWebDavClient()) return;
-
-    setState(() => _isUploading = true);
-    try {
-      final success = await CloudSyncService().uploadBackupToCloud();
-      if (!mounted) return;
-
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Бэкап успешно выгружен в WebDAV')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ошибка подключения или выгрузки в WebDAV')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isUploading = false);
-    }
-  }
-
-  Future<void> _downloadFromWebDav() async {
-    if (!_initWebDavClient()) return;
-
-    setState(() => _isDownloading = true);
-    try {
-      final success = await CloudSyncService().downloadAndApplyBackup();
-      if (!mounted) return;
-
-      if (success) {
-        await context.read<BatchProvider>().loadBatches();
-        await context.read<RecipeProvider>().loadRecipes();
-        await context.read<YeastProvider>().loadYeasts();
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Данные успешно загружены из WebDAV')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ошибка скачивания бэкапа из WebDAV')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isDownloading = false);
-    }
-  }
-
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -564,7 +390,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return AlertDialog(
           title: const Text('Очистить все данные?'),
           content: const Text(
-            'Вы уверены, что хотите удалить все сохраненные партии и историю замеров? Это действие нельзя отменить.',
+            'Вы уверены, что хотите удалить все сохранённые партии и историю замеров? Это действие нельзя отменить.',
           ),
           actions: [
             TextButton(

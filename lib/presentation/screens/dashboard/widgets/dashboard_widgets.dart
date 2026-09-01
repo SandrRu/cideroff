@@ -55,7 +55,7 @@ class TotalInProgressVolumeCard extends StatelessWidget {
               '${volumeLiters.toStringAsFixed(1)} л',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
             ),
-            const Text('Объем в процессе', style: TextStyle(fontSize: 11, color: Colors.black87)),
+            const Text('Объём в процессе', style: TextStyle(fontSize: 11, color: Colors.black87)),
           ],
         ),
       ),

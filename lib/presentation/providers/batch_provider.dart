@@ -6,12 +6,10 @@ import '../../data/models/batch_container_model.dart';
 import '../../data/models/batch_history_model.dart';
 import '../../data/models/recipe_model.dart';
 import '../../services/notification_service.dart';
-import '../../services/calendar_service.dart';
 
 class BatchProvider extends ChangeNotifier {
   final DatabaseService _db = DatabaseService.instance;
   final NotificationService _notifications = NotificationService.instance;
-  final CalendarService _calendar = CalendarService();
 
   List<Batch> _batches = [];
   bool _isLoading = false;
@@ -126,7 +124,6 @@ class BatchProvider extends ChangeNotifier {
         ? executionDate.add(Duration(days: nextStep.durationDays))
         : null;
 
-    // Расчет потерь при наличии подпартий
     final activeContainers = containers ?? batch.containers;
     double? calculatedLoss;
     if (activeContainers.isNotEmpty) {
@@ -136,8 +133,6 @@ class BatchProvider extends ChangeNotifier {
       );
     }
 
-    // Если это самый первый шаг (Первичное брожение) и передан замер сахара,
-    // сохраняем его в initialSugar. В противном случае сохраняем его как промежуточный/финальный замер.
     final double updatedInitialSugar = (currentIndex == 0 && sugarMeasured != null && sugarMeasured > 0)
         ? sugarMeasured
         : batch.initialSugar;
@@ -177,13 +172,6 @@ class BatchProvider extends ChangeNotifier {
       title: 'CiderOff: ${batch.name}',
       body: 'Пора выполнять шаг: ${nextStep.getTitle('ru')}',
       scheduledDate: nextDate,
-    );
-
-    await _calendar.addStepToCalendar(
-      batchName: batch.name,
-      stepTitle: nextStep.getTitle('ru'),
-      instruction: nextStep.getInstruction('ru'),
-      targetDate: nextDate,
     );
   }
 

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:uuid/uuid.dart';
+import 'batch_container_model.dart';
 
 class BatchHistory {
   final String id;
@@ -8,7 +10,8 @@ class BatchHistory {
   final String actionName;
   final double? sugarMeasured;
   final double? alcoholMeasured;
-  final double? nonFermentableSugarGrams; // <-- Добавлено поле
+  final double? nonFermentableSugarGrams;
+  final List<BatchContainer> containers;
   final String? note;
 
   BatchHistory({
@@ -20,6 +23,7 @@ class BatchHistory {
     this.sugarMeasured,
     this.alcoholMeasured,
     this.nonFermentableSugarGrams,
+    this.containers = const [],
     this.note,
   }) : id = id ?? const Uuid().v4();
 
@@ -32,18 +36,39 @@ class BatchHistory {
         'sugarMeasured': sugarMeasured,
         'alcoholMeasured': alcoholMeasured,
         'nonFermentableSugarGrams': nonFermentableSugarGrams,
+        'containers': jsonEncode(containers.map((c) => c.toJson()).toList()),
         'note': note,
       };
 
-  factory BatchHistory.fromJson(Map<String, dynamic> json) => BatchHistory(
-        id: json['id'] as String,
-        batchId: json['batchId'] as String,
-        timestamp: DateTime.parse(json['timestamp'] as String),
-        stepTitle: json['stepTitle'] as String,
-        actionName: json['actionName'] as String,
-        sugarMeasured: (json['sugarMeasured'] as num?)?.toDouble(),
-        alcoholMeasured: (json['alcoholMeasured'] as num?)?.toDouble(),
-        nonFermentableSugarGrams: (json['nonFermentableSugarGrams'] as num?)?.toDouble(),
-        note: json['note'] as String?,
-      );
+  factory BatchHistory.fromJson(Map<String, dynamic> json) {
+    List<BatchContainer> parsedContainers = const [];
+
+    if (json['containers'] != null) {
+      if (json['containers'] is String && (json['containers'] as String).isNotEmpty) {
+        try {
+          final List dynamicList = jsonDecode(json['containers'] as String);
+          parsedContainers = dynamicList
+              .map((c) => BatchContainer.fromJson(c as Map<String, dynamic>))
+              .toList();
+        } catch (_) {}
+      } else if (json['containers'] is List) {
+        parsedContainers = (json['containers'] as List)
+            .map((c) => BatchContainer.fromJson(c as Map<String, dynamic>))
+            .toList();
+      }
+    }
+
+    return BatchHistory(
+      id: json['id'] as String,
+      batchId: json['batchId'] as String,
+      timestamp: DateTime.parse(json['timestamp'] as String),
+      stepTitle: json['stepTitle'] as String,
+      actionName: json['actionName'] as String,
+      sugarMeasured: (json['sugarMeasured'] as num?)?.toDouble(),
+      alcoholMeasured: (json['alcoholMeasured'] as num?)?.toDouble(),
+      nonFermentableSugarGrams: (json['nonFermentableSugarGrams'] as num?)?.toDouble(),
+      containers: parsedContainers,
+      note: json['note'] as String?,
+    );
+  }
 }

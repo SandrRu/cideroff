@@ -82,21 +82,28 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
     final fileName = 'Label_$sanitizeName.pdf';
 
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
-      final outputFile = await FilePicker.platform.saveFile(
+      final outputFile = await FilePicker.saveFile(
         dialogTitle: 'Сохранить этикетку PDF',
         fileName: fileName,
+        bytes: pdfBytes,
         type: FileType.custom,
         allowedExtensions: ['pdf'],
       );
 
       if (outputFile != null) {
-        final file = File(outputFile);
-        await file.writeAsBytes(pdfBytes);
+        // Получаем строковый путь из Uri
+        final filePath = outputFile.toFilePath();
+        final file = File(filePath);
+
+        // Страховка на случай, если ОС или диалог не записали байты автоматически
+        if (!await file.exists() || await file.length() == 0) {
+          await file.writeAsBytes(pdfBytes);
+        }
 
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Этикетка сохранена: $outputFile')),
+          const SnackBar(content: Text('Этикетка успешно сохранена')),
         );
       }
     } else {

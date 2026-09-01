@@ -27,7 +27,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON;');
       },
@@ -89,6 +89,7 @@ class DatabaseService {
         sugarMeasured $realNullable,
         alcoholMeasured $realNullable,
         nonFermentableSugarGrams $realNullable,
+        containers $textNullable,
         note $textNullable,
         FOREIGN KEY (batchId) REFERENCES batches (id) ON DELETE CASCADE
       )
@@ -195,6 +196,10 @@ class DatabaseService {
 
     if (oldVersion < 7) {
       await _addColumnIfNotExists(db, 'batches', 'lossVolume', 'REAL');
+    }
+
+    if (oldVersion < 8) {
+      await _addColumnIfNotExists(db, 'history', 'containers', 'TEXT');
     }
   }
 
@@ -323,13 +328,11 @@ class DatabaseService {
   Future<void> insertRecipe(Recipe recipe) async {
     final db = await instance.database;
 
-    // Проверяем, существует ли уже такой рецепт
     final existing = await db.query('recipes', where: 'id = ?', whereArgs: [recipe.id]);
 
     if (existing.isNotEmpty) {
       final isExistingCustom = (existing.first['isCustom'] == 1 || existing.first['isCustom'] == true);
 
-      // Блокируем изменение системного рецепта (разрешаем обновлять только isFavorite)
       if (!isExistingCustom) {
         final existingTitle = existing.first['title'] as String;
         final existingDesc = existing.first['description'] != null ? existing.first['description'] as String : null;
