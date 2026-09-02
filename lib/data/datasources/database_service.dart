@@ -8,6 +8,7 @@ import '../models/recipe_model.dart';
 import '../models/label_template_model.dart';
 import '../models/yeast_model.dart';
 import '../models/batch_container_model.dart';
+import '../models/drink_type_model.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -27,7 +28,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON;');
       },
@@ -139,6 +140,16 @@ class DatabaseService {
         FOREIGN KEY (batchId) REFERENCES batches (id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE drink_types (
+        id $textType PRIMARY KEY,
+        name $textType,
+        minSugarGramsPerLiter $realType,
+        maxSugarGramsPerLiter $realType,
+        isCustom $integerType
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -200,6 +211,18 @@ class DatabaseService {
 
     if (oldVersion < 8) {
       await _addColumnIfNotExists(db, 'history', 'containers', 'TEXT');
+    }
+
+    if (oldVersion < 9) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS drink_types (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          minSugarGramsPerLiter REAL NOT NULL,
+          maxSugarGramsPerLiter REAL NOT NULL,
+          isCustom INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
     }
   }
 
@@ -413,6 +436,24 @@ class DatabaseService {
     return await db.delete('yeasts', where: 'id = ? AND isCustom = 1', whereArgs: [id]);
   }
 
+  // --- CRUD ДЛЯ ТИПОВ НАПИТКОВ ---
+
+  Future<void> insertDrinkType(DrinkType drinkType) async {
+    final db = await instance.database;
+    await db.insert('drink_types', drinkType.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<DrinkType>> getAllDrinkTypes() async {
+    final db = await instance.database;
+    final result = await db.query('drink_types', orderBy: 'minSugarGramsPerLiter ASC');
+    return result.map((json) => DrinkType.fromJson(json)).toList();
+  }
+
+  Future<int> deleteDrinkType(String id) async {
+    final db = await instance.database;
+    return await db.delete('drink_types', where: 'id = ? AND isCustom = 1', whereArgs: [id]);
+  }
+
   // --- CRUD ДЛЯ ПОДПАРТИЙ / ТАРЫ ---
 
   Future<void> insertBatchContainer(BatchContainer container) async {
@@ -475,6 +516,7 @@ class DatabaseService {
       await txn.delete('batches');
       await txn.delete('recipes', where: 'isCustom = 1');
       await txn.delete('yeasts', where: 'isCustom = 1');
+      await txn.delete('drink_types', where: 'isCustom = 1');
     });
   }
 }

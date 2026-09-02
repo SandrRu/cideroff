@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("kotlin-android")
 }
 
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
@@ -32,6 +32,11 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
+            
+            // Отключаем удаление и обфускацию неиспользуемого кода R8/ProGuard,
+            // чтобы предотвратить удаление MainActivity (ClassNotFoundException)
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
     

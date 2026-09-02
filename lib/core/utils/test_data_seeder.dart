@@ -4,6 +4,7 @@ import '../../data/models/batch_history_model.dart';
 import '../../data/models/recipe_model.dart';
 import '../../data/models/label_template_model.dart';
 import '../../data/models/yeast_model.dart';
+import '../../data/models/drink_type_model.dart';
 
 class TestDataSeeder {
   static Future<void> seedDatabase({bool forceUpdateRecipes = false}) async {
@@ -12,6 +13,45 @@ class TestDataSeeder {
     final existingRecipes = await db.getAllRecipes();
     final existingBatches = await db.getAllBatches();
     final existingYeasts = await db.getAllYeasts();
+    final existingDrinkTypes = await db.getAllDrinkTypes();
+
+    // 0. Сидинг типов готовых напитков (если таблица пуста)
+    if (existingDrinkTypes.isEmpty) {
+      final defaultDrinkTypes = [
+        DrinkType(
+          id: 'drink_type_dry',
+          name: 'Сидр сухой',
+          minSugarGramsPerLiter: 0.0,
+          maxSugarGramsPerLiter: 15.0,
+          isCustom: false,
+        ),
+        DrinkType(
+          id: 'drink_type_semi_dry',
+          name: 'Сидр полусухой',
+          minSugarGramsPerLiter: 16.0,
+          maxSugarGramsPerLiter: 30.0,
+          isCustom: false,
+        ),
+        DrinkType(
+          id: 'drink_type_semi_sweet',
+          name: 'Сидр полусладкий',
+          minSugarGramsPerLiter: 31.0,
+          maxSugarGramsPerLiter: 50.0,
+          isCustom: false,
+        ),
+        DrinkType(
+          id: 'drink_type_sweet',
+          name: 'Сидр сладкий',
+          minSugarGramsPerLiter: 50.1,
+          maxSugarGramsPerLiter: 999.0,
+          isCustom: false,
+        ),
+      ];
+
+      for (final type in defaultDrinkTypes) {
+        await db.insertDrinkType(type);
+      }
+    }
 
     // 1. Сидинг базового справочника дрожжей (если таблица пуста)
     if (existingYeasts.isEmpty) {
@@ -95,7 +135,7 @@ class TestDataSeeder {
           stepIndex: 1,
           title: {'ru': 'Снятие с осадка (Тихое брожение)', 'en': 'Secondary Fermentation'},
           instruction: {'ru': 'Слейте с дрожжевого осадка в чистый бутыль.', 'en': 'Rack off sediment into clean carboy.'},
-          durationDays: 14,
+          durationDays: 7,
           requiresSugarMeasurement: true,
           requiresAlcoholMeasurement: true,
         ),

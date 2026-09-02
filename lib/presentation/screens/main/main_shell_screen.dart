@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import '../../providers/batch_provider.dart';
 import '../../providers/recipe_provider.dart';
 import '../../providers/yeast_provider.dart';
+import '../cellar/cellar_screen.dart'; // <-- Импорт экрана Погребок
 import '../dashboard/dashboard_screen.dart';
 import 'main_screen.dart';
-import '../recipe/recipe_list_screen.dart';
 import '../calculator/calculator_screen.dart';
 import '../settings/settings_screen.dart';
 
@@ -35,7 +35,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   final List<Widget> _screens = const [
     DashboardScreen(),   // Вкладка 0: Дашборд
     MainScreen(),        // Вкладка 1: Партии
-    RecipeListScreen(),  // Вкладка 2: Рецепты
+    CellarScreen(),      // Вкладка 2: Погребок (Новая вкладка)
     CalculatorScreen(),  // Вкладка 3: Калькулятор
     SettingsScreen(),    // Вкладка 4: Настройки
   ];
@@ -67,9 +67,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
             label: 'Партии',
           ),
           NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book, color: Colors.black87),
-            label: 'Рецепты',
+            icon: Icon(Icons.inventory_2_outlined),
+            selectedIcon: Icon(Icons.inventory_2, color: Colors.black87),
+            label: 'Погребок',
           ),
           NavigationDestination(
             icon: Icon(Icons.calculate_outlined),
