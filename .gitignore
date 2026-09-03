@@ -13,6 +13,7 @@
 .history
 .svn/
 .swiftpm/
+site/
 migrate_working_dir/
 project_code.txt
 antigravity.yaml
