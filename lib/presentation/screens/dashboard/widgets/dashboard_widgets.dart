@@ -1,33 +1,180 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../../../data/datasources/database_service.dart';
 import '../../../../data/models/batch_model.dart';
+import '../../../../data/models/drink_type_model.dart';
 import '../../../providers/yeast_provider.dart';
 import '../../calculator/calculator_screen.dart';
 
-/// 1. Карточка общего объема готового напитка
-class TotalCompletedVolumeCard extends StatelessWidget {
-  final double volumeLiters;
-  const TotalCompletedVolumeCard({super.key, required this.volumeLiters});
+/// 1. Карточка объема готового напитка по категориям DrinkType
+class TotalCompletedVolumeCard extends StatefulWidget {
+  final List<Batch> completedBatches;
+  final VoidCallback? onTap;
+
+  const TotalCompletedVolumeCard({
+    super.key,
+    required this.completedBatches,
+    this.onTap,
+  });
+
+  @override
+  State<TotalCompletedVolumeCard> createState() => _TotalCompletedVolumeCardState();
+}
+
+class _TotalCompletedVolumeCardState extends State<TotalCompletedVolumeCard> {
+  List<DrinkType> _drinkTypes = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDrinkTypes();
+  }
+
+  Future<void> _loadDrinkTypes() async {
+    final types = await DatabaseService.instance.getAllDrinkTypes();
+    if (mounted) {
+      setState(() {
+        _drinkTypes = types;
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _getSweetnessCategoryName(double sugarGramsPerLiter) {
+    if (_drinkTypes.isEmpty) return 'Прочее';
+    for (final dt in _drinkTypes) {
+      if (sugarGramsPerLiter >= dt.minSugarGramsPerLiter &&
+          sugarGramsPerLiter <= dt.maxSugarGramsPerLiter) {
+        return dt.name;
+      }
+    }
+    return 'Прочее';
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Card(
+        color: Colors.green.shade50,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green),
+          ),
+        ),
+      );
+    }
+
+    // Подсчет объема по категориям сладости
+    final Map<String, double> categoryVolumes = {};
+    double totalLiters = 0.0;
+
+    for (final b in widget.completedBatches) {
+      final baseSugarGramsPer100ml = b.finalSugarWithPriming ?? b.finalSugar ?? b.initialSugar;
+      final baseSugarGramsPerLiter = baseSugarGramsPer100ml * 10.0;
+
+      if (b.containers.isNotEmpty) {
+        for (final c in b.containers) {
+          final totalSugarGramsPerLiter = baseSugarGramsPerLiter + c.sweetenerAmountGramsPerLiter;
+          final categoryName = _getSweetnessCategoryName(totalSugarGramsPerLiter);
+          
+          categoryVolumes[categoryName] = (categoryVolumes[categoryName] ?? 0.0) + c.totalVolumeLiters;
+          totalLiters += c.totalVolumeLiters;
+        }
+      } else {
+        final categoryName = _getSweetnessCategoryName(baseSugarGramsPerLiter);
+        final vol = b.totalBottledVolume > 0 ? b.totalBottledVolume : b.juiceVolume;
+        categoryVolumes[categoryName] = (categoryVolumes[categoryName] ?? 0.0) + vol;
+        totalLiters += vol;
+      }
+    }
+
+    final sortedEntries = categoryVolumes.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
     return Card(
       color: Colors.green.shade50,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.check_circle_outline, color: Colors.green, size: 28),
-            const SizedBox(height: 4),
-            Text(
-              '${volumeLiters.toStringAsFixed(1)} л',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
-            ),
-            const Text('Готовый напиток', style: TextStyle(fontSize: 11, color: Colors.black87)),
-          ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: widget.onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
+                      SizedBox(width: 6),
+                      Text(
+                        'Готовый напиток',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '${totalLiters.toStringAsFixed(1)} л',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (sortedEntries.isEmpty)
+                const Text(
+                  'Нет готовых партий',
+                  style: TextStyle(fontSize: 11, color: Colors.black54),
+                )
+              else
+                Column(
+                  children: sortedEntries.map((entry) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 1.5),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              entry.key,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black87,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            '${entry.value.toStringAsFixed(1)} л',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -190,12 +337,19 @@ class ActiveFermentationsCard extends StatelessWidget {
   }
 }
 
-/// 6. Используемые дрожжи в ходу
-/// Отображает детальный список активных штаммов с их названиями и количеством партий.
+/// 6. Используемые дрожжи в ходу (Оптимизирован для малых экранов)
 class ActiveYeastsCard extends StatelessWidget {
   final List<Batch> batches;
 
   const ActiveYeastsCard({super.key, required this.batches});
+
+  String _formatYeastName(String rawName) {
+    return rawName
+        .replaceAll("Mangrove Jack's", '')
+        .replaceAll('Fermentis', '')
+        .replaceAll('Lallemand', '')
+        .trim();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -220,75 +374,124 @@ class ActiveYeastsCard extends StatelessWidget {
       color: Colors.teal.shade50,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        padding: const EdgeInsets.all(10),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompactWidth = constraints.maxWidth < 170;
+            final isCompactHeight = constraints.maxHeight < 120;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.biotech_outlined, color: Colors.teal, size: 20),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Дрожжи в работе',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.teal.shade900),
+                    const Icon(Icons.biotech_outlined, color: Colors.teal, size: 18),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Дрожжи в работе',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal.shade900,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
+                    if (!isCompactWidth) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        '${sortedYeasts.length} шт.',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal.shade700,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-                Text(
-                  '${sortedYeasts.length} шт.',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal.shade700),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (sortedYeasts.isEmpty)
-              const Text('Нет указанных дрожжей в активных партиях', style: TextStyle(fontSize: 11, color: Colors.black54))
-            else
-              Column(
-                children: sortedYeasts.map((entry) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            entry.key,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black87),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          '${entry.value} партий',
-                          style: TextStyle(fontSize: 10, color: Colors.teal.shade800),
-                        ),
-                      ],
+                const SizedBox(height: 6),
+                if (sortedYeasts.isEmpty)
+                  const Expanded(
+                    child: Center(
+                      child: Text(
+                        'Нет дрожжей в работающих партиях',
+                        style: TextStyle(fontSize: 10, color: Colors.black54),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  );
-                }).toList(),
-              ),
-          ],
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: sortedYeasts.length,
+                      itemBuilder: (context, index) {
+                        final entry = sortedYeasts[index];
+                        final displayName = isCompactWidth
+                            ? _formatYeastName(entry.key)
+                            : entry.key;
+
+                        final batchSuffix = isCompactWidth
+                            ? 'п.'
+                            : (entry.value == 1 ? 'парт.' : 'партии');
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 1.5),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  displayName,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black87,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${entry.value} $batchSuffix',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.teal.shade800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 }
 
-/// 7. Готовность по видам тары
-/// Отображает сгруппированный остаток готовой продукции по типам емкостей.
-class FinishedPackagingCard extends StatelessWidget {
+/// 7. Объем и структура расфасованной продукции (Замена FinishedPackagingCard)
+class PackagingVolumeDistributionCard extends StatelessWidget {
   final List<Batch> batches;
 
-  const FinishedPackagingCard({super.key, required this.batches});
+  const PackagingVolumeDistributionCard({super.key, required this.batches});
 
   @override
   Widget build(BuildContext context) {
     final Map<String, int> packagingCounts = {};
     final Map<String, double> packagingVolumes = {};
+    double totalVolume = 0.0;
 
     for (final batch in batches) {
       for (final container in batch.containers) {
@@ -298,62 +501,121 @@ class FinishedPackagingCard extends StatelessWidget {
 
         packagingCounts[label] = (packagingCounts[label] ?? 0) + container.count;
         packagingVolumes[label] = (packagingVolumes[label] ?? 0) + container.totalVolumeLiters;
+        totalVolume += container.totalVolumeLiters;
       }
     }
+
+    final sortedKeys = packagingVolumes.keys.toList()
+      ..sort((a, b) => packagingVolumes[b]!.compareTo(packagingVolumes[a]!));
 
     return Card(
       color: Colors.blueGrey.shade50,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.inventory_2_outlined, color: Colors.blueGrey.shade700, size: 20),
-                const SizedBox(width: 6),
-                Text(
-                  'Готовность по видам тары',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade900),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (packagingCounts.isEmpty)
-              const Text('Готовая продукция еще не расфасована', style: TextStyle(fontSize: 11, color: Colors.black54))
-            else
-              Column(
-                children: packagingCounts.keys.map((key) {
-                  final count = packagingCounts[key]!;
-                  final volume = packagingVolumes[key]!;
+        padding: const EdgeInsets.all(10),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompactWidth = constraints.maxWidth < 170;
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(_getIconForPackaging(key), size: 14, color: Colors.blueGrey.shade600),
-                            const SizedBox(width: 4),
-                            Text(
-                              key,
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black87),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '$count шт. (~${volume.toStringAsFixed(1)} л)',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800),
-                        ),
-                      ],
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      color: Colors.blueGrey.shade800,
+                      size: 18,
                     ),
-                  );
-                }).toList(),
-              ),
-          ],
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Разлито по таре',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueGrey.shade900,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    Text(
+                      '${totalVolume.toStringAsFixed(1)} л',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueGrey.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (sortedKeys.isEmpty)
+                  const Expanded(
+                    child: Center(
+                      child: Text(
+                        'Продукция еще не расфасована',
+                        style: TextStyle(fontSize: 10, color: Colors.black54),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: sortedKeys.length,
+                      itemBuilder: (context, index) {
+                        final key = sortedKeys[index];
+                        final count = packagingCounts[key]!;
+                        final volume = packagingVolumes[key]!;
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 1.5),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _getIconForPackaging(key),
+                                size: 12,
+                                color: Colors.blueGrey.shade600,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  key,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black87,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                isCompactWidth
+                                    ? '$count шт'
+                                    : '$count шт (${volume.toStringAsFixed(1)}л)',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blueGrey.shade900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -363,7 +625,7 @@ class FinishedPackagingCard extends StatelessWidget {
     final lower = type.toLowerCase();
     if (lower.contains('кег')) return Icons.sports_bar;
     if (lower.contains('бутылк')) return Icons.wine_bar;
-    if (lower.contains('банка')) return Icons.view_headline;
+    if (lower.contains('банка') || lower.contains('пэт')) return Icons.local_drink;
     return Icons.takeout_dining;
   }
 }

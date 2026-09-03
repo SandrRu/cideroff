@@ -3,6 +3,8 @@
 *.log
 *.pyc
 *.swp
+*.jks
+*.svg
 .DS_Store
 .atom/
 .build/
@@ -11,6 +13,8 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+project_code.txt
+antigravity.yaml
 
 # Windows specific
 Thumbs.db

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../providers/app_settings_provider.dart';
-import '../../providers/batch_provider.dart';
+import 'package:cider_off/presentation/providers/app_settings_provider.dart';
+import 'package:cider_off/presentation/providers/batch_provider.dart';
+import '../cellar/cellar_screen.dart';
 import 'widgets/dashboard_widgets.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -22,11 +23,6 @@ class DashboardScreen extends StatelessWidget {
       (sum, b) => sum + b.juiceVolume,
     );
 
-    final totalCompletedVolume = completedBatches.fold<double>(
-      0.0,
-      (sum, b) => sum + b.juiceVolume,
-    );
-
     final ciderCount = batchProvider.batches.where((b) => b.type.name == 'cider').length;
     final calvadosCount = batchProvider.batches.where((b) => b.type.name == 'calvados').length;
 
@@ -41,7 +37,17 @@ class DashboardScreen extends StatelessWidget {
     final List<Widget> activeWidgets = [];
 
     if (settings.showTotalCompletedVolume) {
-      activeWidgets.add(TotalCompletedVolumeCard(volumeLiters: totalCompletedVolume));
+      activeWidgets.add(
+        TotalCompletedVolumeCard(
+          completedBatches: completedBatches,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CellarScreen()),
+            );
+          },
+        ),
+      );
     }
     if (settings.showTotalInProgressVolume) {
       activeWidgets.add(TotalInProgressVolumeCard(volumeLiters: totalInProgressVolume));
@@ -59,7 +65,7 @@ class DashboardScreen extends StatelessWidget {
       activeWidgets.add(ActiveYeastsCard(batches: batchProvider.batches));
     }
     if (settings.showFinishedPackaging) {
-      activeWidgets.add(FinishedPackagingCard(batches: batchProvider.batches));
+      activeWidgets.add(PackagingVolumeDistributionCard(batches: batchProvider.batches));
     }
     if (settings.showQuickCalculatorCard) {
       activeWidgets.add(const QuickCalculatorCard());
