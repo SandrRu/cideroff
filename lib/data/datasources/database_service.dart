@@ -2,13 +2,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart' hide Batch;
-import '../models/batch_model.dart';
-import '../models/batch_history_model.dart';
-import '../models/recipe_model.dart';
-import '../models/label_template_model.dart';
-import '../models/yeast_model.dart';
-import '../models/batch_container_model.dart';
-import '../models/drink_type_model.dart';
+import 'package:cider_off/data/models/batch_model.dart';
+import 'package:cider_off/data/models/batch_history_model.dart';
+import 'package:cider_off/data/models/recipe_model.dart';
+import 'package:cider_off/data/models/label_template_model.dart';
+import 'package:cider_off/data/models/yeast_model.dart';
+import 'package:cider_off/data/models/batch_container_model.dart';
+import 'package:cider_off/data/models/drink_type_model.dart';
+import 'package:cider_off/data/models/sweetener_type_model.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -28,7 +29,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON;');
       },
@@ -77,6 +78,15 @@ class DatabaseService {
         yeastId $textNullable,
         FOREIGN KEY (currentRecipeId) REFERENCES recipes (id) ON DELETE SET NULL,
         FOREIGN KEY (yeastId) REFERENCES yeasts (id) ON DELETE SET NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE sweetener_types (
+        id $textType PRIMARY KEY,
+        name $textType,
+        sweetnessFactor $realType DEFAULT 1.0,
+        isCustom $integerType DEFAULT 0
       )
     ''');
 
@@ -224,6 +234,17 @@ class DatabaseService {
         )
       ''');
     }
+
+    if (oldVersion < 10) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS sweetener_types (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          sweetnessFactor REAL NOT NULL DEFAULT 1.0,
+          isCustom INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
+    }    
   }
 
   Future<void> _addColumnIfNotExists(
@@ -508,6 +529,34 @@ class DatabaseService {
     );
   }
 
+// --- CRUD ДЛЯ ПОДСЛАСТИТЕЛЕЙ ---
+
+  Future<void> insertSweetenerType(SweetenerType sweetener) async {
+    final db = await instance.database;
+    await db.insert('sweetener_types', sweetener.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<SweetenerType>> getAllSweetenerTypes() async {
+    final db = await instance.database;
+    final result = await db.query('sweetener_types', orderBy: 'name ASC');
+    return result.map((json) => SweetenerType.fromJson(json)).toList();
+  }
+
+  Future<int> updateSweetenerType(SweetenerType sweetener) async {
+    final db = await instance.database;
+    return await db.update(
+      'sweetener_types',
+      sweetener.toJson(),
+      where: 'id = ?',
+      whereArgs: [sweetener.id],
+    );
+  }
+
+  Future<int> deleteSweetenerType(String id) async {
+    final db = await instance.database;
+    return await db.delete('sweetener_types', where: 'id = ? AND isCustom = 1', whereArgs: [id]);
+  }
+  
   Future<void> clearAllData() async {
     final db = await instance.database;
     await db.transaction((txn) async {
@@ -517,6 +566,9 @@ class DatabaseService {
       await txn.delete('recipes', where: 'isCustom = 1');
       await txn.delete('yeasts', where: 'isCustom = 1');
       await txn.delete('drink_types', where: 'isCustom = 1');
+      await txn.delete('sweetener_types', where: 'isCustom = 1'); // <-- ОЧИСТКА ДОБАВЛЕНА
     });
   }
+
+
 }

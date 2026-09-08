@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../../data/models/batch_container_model.dart';
+import 'package:provider/provider.dart';
+import 'package:cider_off/data/models/batch_container_model.dart';
+import 'package:cider_off/presentation/providers/sweetener_provider.dart';
 
 class ContainerFormDialog extends StatefulWidget {
   final String batchId;
@@ -26,15 +28,6 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
   String? _selectedSweetenerType;
   String _selectedContainerType = 'Бутылка (бугель)';
 
-  final List<String> _sweetenerOptions = [
-    'Без подсластителя',
-    'Ксилит',
-    'Эритрит',
-    'Сорбитол',
-    'Яблочный сок (концентрат)',
-    'Декстроза (несбраживаемый профиль)',
-  ];
-
   final List<String> _containerOptions = [
     'Бутылка (бугель)',
     'Бутылка (кроненпропка)',
@@ -58,10 +51,16 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
       text: c != null ? c.count.toString() : '10',
     );
 
-    _selectedSweetenerType = c?.sweetenerType ?? _sweetenerOptions.first;
+    _selectedSweetenerType = c?.sweetenerType;
+
     if (c != null && _containerOptions.contains(c.containerType)) {
       _selectedContainerType = c.containerType;
     }
+
+    // Инициализация загрузки списка подсластителей из БД
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SweetenerProvider>().loadSweetenerTypes();
+    });
   }
 
   @override
@@ -154,28 +153,56 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
               ),
               const SizedBox(height: 12),
 
-              DropdownButtonFormField<String>(
-                value: _selectedSweetenerType,
-                decoration: const InputDecoration(
-                  labelText: 'Подсластитель',
-                  border: OutlineInputBorder(),
-                ),
-                items: _sweetenerOptions.map((sw) {
-                  return DropdownMenuItem(value: sw, child: Text(sw));
-                }).toList(),
-                onChanged: (val) {
-                  setState(() => _selectedSweetenerType = val);
+              Consumer<SweetenerProvider>(
+                builder: (context, sweetenerProvider, child) {
+                  if (sweetenerProvider.isLoading) {
+                    return const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  final sweetenerNames = sweetenerProvider.sweetenerTypes
+                      .map((sw) => sw.name)
+                      .toList();
+
+                  final String? validValue = sweetenerNames.contains(_selectedSweetenerType)
+                      ? _selectedSweetenerType
+                      : null;
+
+                  return DropdownButtonFormField<String?>(
+                    value: validValue,
+                    decoration: const InputDecoration(
+                      labelText: 'Подсластитель',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Без подсластителя'),
+                      ),
+                      ...sweetenerNames.map((swName) {
+                        return DropdownMenuItem<String?>(
+                          value: swName,
+                          child: Text(swName),
+                        );
+                      }),
+                    ],
+                    onChanged: (val) {
+                      setState(() => _selectedSweetenerType = val);
+                    },
+                  );
                 },
               ),
               const SizedBox(height: 12),
 
-              if (_selectedSweetenerType != null && _selectedSweetenerType != 'Без подсластителя') ...[
+              if (_selectedSweetenerType != null) ...[
                 TextFormField(
                   controller: _sweetenerAmountController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
                     labelText: 'Количество подсластителя (г/л)',
-                    helperText: 'Увеличивает итоговую расчетную сладость (+0.1 г/100мл на каждые 1 г/л)',
+                    helperText: 'Увеличивает итоговую расчетную сладость',
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) {
@@ -209,7 +236,7 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      final isNoSweetener = _selectedSweetenerType == 'Без подсластителя';
+      final isNoSweetener = _selectedSweetenerType == null;
       final sweetenerAmount = isNoSweetener ? 0.0 : (_parseDouble(_sweetenerAmountController.text) ?? 0.0);
 
       final resultContainer = BatchContainer(
@@ -217,9 +244,9 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
         batchId: widget.batchId,
         title: _titleController.text.trim(),
         containerType: _selectedContainerType,
-        containerVolumeLiters: _parseDouble(_volumeController.text)!,
-        count: int.parse(_countController.text.trim()),
-        sweetenerType: isNoSweetener ? null : _selectedSweetenerType,
+        containerVolumeLiters: _parseDouble(_volumeController.text) ?? 0.75,
+        count: int.tryParse(_countController.text.trim()) ?? 1,
+        sweetenerType: _selectedSweetenerType,
         sweetenerAmountGramsPerLiter: sweetenerAmount,
       );
 

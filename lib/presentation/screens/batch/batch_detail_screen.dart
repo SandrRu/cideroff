@@ -697,7 +697,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                         await batchProvider.updateBatch(updatedYeastBatch);
                                       }
 
-                                      // Если в истории/заметках или шаге создаются под партии, 
+                                      // Если в истории/заметках или шаге создаются подпартии, 
                                       // формируем строку подпартий для добавления в заметку истории
                                       String stepNote = _noteController.text.trim();
                                       if (currentStep.isBottlingStep && _draftContainers.isNotEmpty) {
@@ -715,7 +715,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                         sugarMeasured: baseSugar,
                                         alcoholMeasured: _parseDouble(_alcoholController.text),
                                         note: stepNote,
-                                        containers: currentStep.isBottlingStep ? _draftContainers : _draftContainers,
+                                        containers: currentStep.isBottlingStep ? _draftContainers : const [],
                                         stepDate: _selectedStepDate,
                                         primingSugarGrams: primingGrams,
                                         finalSugarWithPriming: baseSugar,

@@ -1,10 +1,12 @@
-import '../../data/datasources/database_service.dart';
-import '../../data/models/batch_model.dart';
-import '../../data/models/batch_history_model.dart';
-import '../../data/models/recipe_model.dart';
-import '../../data/models/label_template_model.dart';
-import '../../data/models/yeast_model.dart';
-import '../../data/models/drink_type_model.dart';
+import 'dart:convert';
+import 'package:cider_off/data/datasources/database_service.dart';
+import 'package:cider_off/data/models/batch_model.dart';
+import 'package:cider_off/data/models/batch_history_model.dart';
+import 'package:cider_off/data/models/recipe_model.dart';
+import 'package:cider_off/data/models/label_template_model.dart';
+import 'package:cider_off/data/models/yeast_model.dart';
+import 'package:cider_off/data/models/drink_type_model.dart';
+import 'package:cider_off/data/models/sweetener_type_model.dart';
 
 class TestDataSeeder {
   static Future<void> seedDatabase({bool forceUpdateRecipes = false}) async {
@@ -14,6 +16,7 @@ class TestDataSeeder {
     final existingBatches = await db.getAllBatches();
     final existingYeasts = await db.getAllYeasts();
     final existingDrinkTypes = await db.getAllDrinkTypes();
+    final existingSweeteners = await db.getAllSweetenerTypes();
 
     // 0. Сидинг типов готовых напитков (если таблица пуста)
     if (existingDrinkTypes.isEmpty) {
@@ -105,12 +108,26 @@ class TestDataSeeder {
       }
     }
 
+    // 2. Сидинг типов подсластителей (перенесено наверх до выходов из метода)
+    if (existingSweeteners.isEmpty) {
+      final defaultSweeteners = [
+        SweetenerType(id: 'sw_xylitol', name: 'Ксилит', sweetnessFactor: 1.0, isCustom: false),
+        SweetenerType(id: 'sw_erythritol', name: 'Эритрит', sweetnessFactor: 0.7, isCustom: false),
+        SweetenerType(id: 'sw_sorbitol', name: 'Сорбитол', sweetnessFactor: 0.6, isCustom: false),
+        SweetenerType(id: 'sw_juice', name: 'Яблочный сок (концентрат)', sweetnessFactor: 1.0, isCustom: false),
+      ];
+
+      for (final sw in defaultSweeteners) {
+        await db.insertSweetenerType(sw);
+      }
+    }
+
     // Если данные уже есть и не запрошено принудительное обновление рецептов — выходим
     if (!forceUpdateRecipes && (existingRecipes.isNotEmpty || existingBatches.isNotEmpty)) {
       return;
     }
 
-    // 2. Предустановленный рецепт Сидра
+    // 3. Предустановленный рецепт Сидра
     final defaultRecipe = Recipe(
       id: 'recipe_classic_dry',
       title: {'ru': 'Классический сухой сидр', 'en': 'Classic Dry Cider'},
@@ -173,7 +190,7 @@ class TestDataSeeder {
     );
     await db.insertRecipe(defaultRecipe);
 
-    // 3. Предустановленный рецепт Кальвадоса
+    // 4. Предустановленный рецепт Кальвадоса
     final calvadosRecipe = Recipe(
       id: 'recipe_classic_calvados',
       title: {'ru': 'Классический Кальвадос', 'en': 'Classic Calvados'},
@@ -242,17 +259,66 @@ class TestDataSeeder {
     );
     await db.insertRecipe(calvadosRecipe);
 
-    // 4. Шаблон термоэтикетки
+    // 5. Шаблон термоэтикетки (заполнена рабочая схема JSON)
+    final defaultTemplateSchema = {
+      'elements': [
+        {
+          'type': 'text',
+          'field': 'batch_name',
+          'x': 2.0,
+          'y': 3.0,
+          'fontSize': 14.0,
+          'isBold': true,
+        },
+        {
+          'type': 'text',
+          'field': 'apple_variety',
+          'x': 2.0,
+          'y': 10.0,
+          'fontSize': 10.0,
+          'isBold': false,
+        },
+        {
+          'type': 'text',
+          'field': 'alcohol_and_sugar',
+          'x': 2.0,
+          'y': 16.0,
+          'fontSize': 11.0,
+          'isBold': true,
+        },
+        {
+          'type': 'text',
+          'field': 'bottling_date',
+          'x': 2.0,
+          'y': 24.0,
+          'fontSize': 9.0,
+          'isBold': false,
+        },
+        {
+          'type': 'qr_code',
+          'field': 'batch_id',
+          'x': 36.0,
+          'y': 10.0,
+          'size': 18.0,
+        },
+      ]
+    };
+
     final defaultTemplate = LabelTemplate(
       id: 'template_58x40',
       name: 'Стандартная 58x40 мм',
       widthMm: 58.0,
       heightMm: 40.0,
-      schemaJson: '{}',
+      schemaJson: jsonEncode(defaultTemplateSchema),
     );
     await db.insertLabelTemplate(defaultTemplate);
 
-    // 5. Активная партия
+    // Если партии уже были созданы ранее, повторно тестовые партии не добавляем
+    if (existingBatches.isNotEmpty) {
+      return;
+    }
+
+    // 6. Активная партия
     final activeBatch = Batch(
       id: 'batch_active_01',
       name: 'Антоновка 2026',
@@ -282,7 +348,7 @@ class TestDataSeeder {
       ),
     );
 
-    // 6. Готовая партия
+    // 7. Готовая партия
     final completedBatch = Batch(
       id: 'batch_completed_01',
       name: 'Штрифлинг Резерв',

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
+import 'package:cider_off/presentation/providers/sweetener_provider.dart';
 import 'package:cider_off/presentation/providers/app_settings_provider.dart';
 import 'package:cider_off/presentation/providers/batch_provider.dart';
 import 'package:cider_off/presentation/providers/recipe_provider.dart';
@@ -41,6 +41,7 @@ class CiderOffApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BatchProvider()),
         ChangeNotifierProvider(create: (_) => RecipeProvider()),
         ChangeNotifierProvider(create: (_) => YeastProvider()),
+        ChangeNotifierProvider(create: (_) => SweetenerProvider()),
       ],
       child: Consumer<AppSettingsProvider>(
         builder: (context, settings, child) {
