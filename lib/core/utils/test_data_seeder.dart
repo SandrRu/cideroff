@@ -57,55 +57,68 @@ class TestDataSeeder {
     }
 
     // 1. Сидинг базового справочника дрожжей (если таблица пуста)
-    if (existingYeasts.isEmpty) {
-      final defaultYeasts = [
-        Yeast(
-          id: 'yeast_mangrove_m02',
-          name: "Mangrove Jack's Cider M02",
-          category: 'Cider',
-          description: 'Специализированный штамм для сидра. Высокая флокуляция, сохраняет яркий фруктовый аромат яблок.',
-          isCustom: false,
-        ),
-        Yeast(
-          id: 'yeast_safcider_ab1',
-          name: 'Fermentis SafCider AB-1',
-          category: 'Cider',
-          description: 'Универсальные сидровые дрожжи. Подходят для сухих и полусухих сидров даже при низкой температуре.',
-          isCustom: false,
-        ),
-        Yeast(
-          id: 'yeast_safcider_ac4',
-          name: 'Fermentis SafCider AC-4',
-          category: 'Cider',
-          description: 'Дают свежий ароматический профиль с выраженными кислыми яблочными нотами.',
-          isCustom: false,
-        ),
-        Yeast(
-          id: 'yeast_safcider_as2',
-          name: 'Fermentis SafCider AS-2',
-          category: 'Cider',
-          description: 'Дают свежий ароматический профиль с приятными джемовыми тонами яблочного пюре, сладостью и округлостью во вкусе. Потребляют яблочную кислоту до 0,9 г/л. Это помогает снизить общую кислотность сусла и смягчить вкус напитка.',
-          isCustom: false,
-        ),
-        Yeast(
-          id: 'yeast_lalvin_ec1118',
-          name: 'Lalvin EC-1118',
-          category: 'Universal / Calvados',
-          description: 'Шампанский штамм. Высокая киллер-активность, отличная сбраживаемость для крепких сидров и сусла под Кальвадос.',
-          isCustom: false,
-        ),
-        Yeast(
-          id: 'yeast_lallemand_distilaMax',
-          name: 'Lallemand DistilaMax RM',
-          category: 'Calvados',
-          description: 'Профессиональный штамм для фруктовых дистиллятов (яблочный бренди / кальвадос).',
-          isCustom: false,
-        ),
-      ];
+    final defaultYeasts = [
+      Yeast(
+        id: 'yeast_mangrove_m02',
+        name: "Mangrove Jack's Cider M02",
+        category: 'Cider',
+        description: 'Специализированный штамм для сидра. Высокая флокуляция, сохраняет яркий фруктовый аромат яблок.',
+        isCustom: false,
+      ),
+      Yeast(
+        id: 'yeast_safcider_ab1',
+        name: 'Fermentis SafCider AB-1',
+        category: 'Cider',
+        description: 'Универсальные сидровые дрожжи. Подходят для сухих и полусухих сидров даже при низкой температуре.',
+        isCustom: false,
+      ),
+      Yeast(
+        id: 'yeast_safcider_ac4',
+        name: 'Fermentis SafCider AC-4',
+        category: 'Cider',
+        description: 'Дают свежий ароматический профиль с выраженными кислыми яблочными нотами.',
+        isCustom: false,
+      ),
+      Yeast(
+        id: 'yeast_safcider_as2',
+        name: 'Fermentis SafCider AS-2',
+        category: 'Cider',
+        description: 'Дают свежий ароматический профиль с приятными джемовыми тонами яблочного пюре, сладостью и округлостью во вкусе. Потребляют яблочную кислоту до 0,9 г/л. Это помогает снизить общую кислотность сусла и смягчить вкус напитка.',
+        isCustom: false,
+      ),
+      Yeast(
+        id: 'yeast_safcider_tf6',
+        name: 'Fermentis SafCider TF-6',
+        category: 'Cider',
+        description: 'Тутти-фрутти штамм. Взрывная фруктовая ароматика, идеальная округлость вкуса для изысканных сладких и полусладких традиционных сидров.',
+        isCustom: false,
+      ),
+      Yeast(
+        id: 'yeast_lalvin_ec1118',
+        name: 'Lalvin EC-1118',
+        category: 'Universal / Calvados',
+        description: 'Шампанский штамм. Высокая киллер-активность, отличная сбраживаемость для крепких сидров и сусла под Кальвадос.',
+        isCustom: false,
+      ),
+      Yeast(
+        id: 'yeast_lalvin_71B',
+        name: 'Lalvin 71B',
+        category: 'Universal',
+        description: 'Фруктово-ягодный штамм. Высокий ароматный потенциал, мягкое снижение кислотности для нежных фруктовых вин, полусладких сидров и медовух.',
+        isCustom: false,
+      ),
+      Yeast(
+        id: 'yeast_lallemand_distilaMax',
+        name: 'Lallemand DistilaMax RM',
+        category: 'Calvados',
+        description: 'Профессиональный штамм для фруктовых дистиллятов (яблочный бренди / кальвадос).',
+        isCustom: false,
+      ),
+    ];
 
-      for (final yeast in defaultYeasts) {
-        await db.insertYeast(yeast);
-      }
+    for (final yeast in defaultYeasts) {
+      // SQLite insert с конфликтом по ID заменит или пропустит, если уже есть
+      await db.insertYeast(yeast);
     }
 
     // 2. Сидинг типов подсластителей (перенесено наверх до выходов из метода)

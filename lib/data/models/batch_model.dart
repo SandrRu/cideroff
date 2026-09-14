@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:uuid/uuid.dart';
 import 'batch_container_model.dart';
 
@@ -183,6 +184,7 @@ class Batch {
     );
   }
 
+  /// Сериализация для JSON (бекапы / обмен данными)
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -204,6 +206,7 @@ class Batch {
         'nonFermentableSugarGrams': nonFermentableSugarGrams,
         'finalSugarWithPriming': finalSugarWithPriming,
         'lossVolume': lossVolume,
+        'containers': containers.map((c) => c.toJson()).toList(),
         'notes': notes,
         'rawSpiritVolume': rawSpiritVolume,
         'rawSpiritABV': rawSpiritABV,
@@ -213,6 +216,13 @@ class Batch {
         'agingStartDate': agingStartDate?.toIso8601String(),
         'barrelNotes': barrelNotes,
       };
+
+  /// Сериализация для локальной БД SQLite (исключает поля связей)
+  Map<String, dynamic> toMap() {
+    final map = toJson();
+    map.remove('containers'); // Удаляем containers, так как они сохраняются в отдельную таблицу batch_containers
+    return map;
+  }
 
   factory Batch.fromJson(Map<String, dynamic> json, {List<BatchContainer> containers = const []}) {
     DateTime parseDate(dynamic val) {
@@ -230,6 +240,24 @@ class Batch {
       return null;
     }
 
+    List<BatchContainer> parsedContainers = List.from(containers);
+    
+    // Если containers не был явно передан в аргументы, пробуем распарсить его из JSON
+    if (parsedContainers.isEmpty && json['containers'] != null) {
+      if (json['containers'] is String && (json['containers'] as String).isNotEmpty) {
+        try {
+          final decodedList = jsonDecode(json['containers'] as String) as List;
+          parsedContainers = decodedList
+              .map((c) => BatchContainer.fromJson(c as Map<String, dynamic>))
+              .toList();
+        } catch (_) {}
+      } else if (json['containers'] is List) {
+        parsedContainers = (json['containers'] as List)
+            .map((c) => BatchContainer.fromJson(c as Map<String, dynamic>))
+            .toList();
+      }
+    }
+    
     return Batch(
       id: json['id'] as String? ?? const Uuid().v4(),
       name: json['name'] as String? ?? 'Партия',
@@ -251,7 +279,7 @@ class Batch {
       nonFermentableSugarGrams: (json['nonFermentableSugarGrams'] as num?)?.toDouble(),
       finalSugarWithPriming: (json['finalSugarWithPriming'] as num?)?.toDouble(),
       lossVolume: (json['lossVolume'] as num?)?.toDouble(),
-      containers: containers,
+      containers: parsedContainers,
       notes: json['notes'] as String? ?? '',
       rawSpiritVolume: (json['rawSpiritVolume'] as num?)?.toDouble(),
       rawSpiritABV: (json['rawSpiritABV'] as num?)?.toDouble(),
@@ -261,5 +289,9 @@ class Batch {
       agingStartDate: parseNullableDate(json['agingStartDate']),
       barrelNotes: json['barrelNotes'] as String?,
     );
+  }
+
+  factory Batch.fromMap(Map<String, dynamic> map, {List<BatchContainer> containers = const []}) {
+    return Batch.fromJson(map, containers: containers);
   }
 }

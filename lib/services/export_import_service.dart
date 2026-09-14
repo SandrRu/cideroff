@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -75,16 +74,23 @@ class ExportImportService {
 
   /// Генерация JSON-строки бэкапа в памяти
   Future<String> generateBackupJsonString() async {
-    final batches = await _db.getAllBatches();
+    final rawBatches = await _db.getAllBatches();
     final recipes = await _db.getAllRecipes();
     final templates = await _db.getAllLabelTemplates();
     final yeasts = await _db.getAllYeasts();
     final drinkTypes = await _db.getAllDrinkTypes();
 
     final List<Map<String, dynamic>> allHistory = [];
-    for (var batch in batches) {
+    final List<Batch> batches = [];
+
+    for (var batch in rawBatches) {
+      // 1. Получаем историю
       final historyList = await _db.getHistoryForBatch(batch.id);
       allHistory.addAll(historyList.map((h) => h.toJson()));
+
+      // 2. Подгружаем подпартии (контейнеры) для каждой партии
+      final containers = await _db.getContainersForBatch(batch.id);
+      batches.add(batch.copyWith(containers: containers));
     }
 
     final backupData = {
@@ -141,7 +147,15 @@ class ExportImportService {
     }
     if (data['batches'] != null) {
       for (var item in data['batches']) {
-        await _db.insertBatch(Batch.fromJson(item));
+        final batch = Batch.fromJson(item);
+        await _db.insertBatch(batch);
+
+        // Восстанавливаем контейнеры / подпартии для данной партии
+        if (batch.containers.isNotEmpty) {
+          for (var container in batch.containers) {
+            await _db.insertBatchContainer(container);
+          }
+        }
       }
     }
     if (data['history'] != null) {

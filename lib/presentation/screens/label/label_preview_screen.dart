@@ -6,16 +6,19 @@ import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../data/models/batch_model.dart';
+import '../../../data/models/batch_container_model.dart'; // 👈 Добавлен импорт
 import '../../../data/models/label_template_model.dart';
 import '../../../services/label_pdf_service.dart';
 
 class LabelPreviewScreen extends StatefulWidget {
   final Batch batch;
+  final BatchContainer? container; // 👈 Добавлено поле для подпартии
   final LabelTemplate? template;
 
   const LabelPreviewScreen({
     super.key,
     required this.batch,
+    this.container, // 👈 Добавлено в конструктор
     this.template,
   });
 
@@ -42,7 +45,11 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Этикетка: ${widget.batch.name}'),
+        title: Text(
+          widget.container != null 
+              ? 'Этикетка: ${widget.container!.title}' 
+              : 'Этикетка: ${widget.batch.name}',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.share),
@@ -57,6 +64,7 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
             child: PdfPreview(
               build: (format) => LabelPdfService.generateLabelPdf(
                 batch: widget.batch,
+                container: widget.container, // 👈 Передаем подпартию в генератор
                 template: _selectedTemplate,
               ),
               allowPrinting: true,
@@ -73,12 +81,16 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
   Future<void> _sharePdf() async {
     final pdfBytes = await LabelPdfService.generateLabelPdf(
       batch: widget.batch,
+      container: widget.container,
       template: _selectedTemplate,
     );
 
     if (!mounted) return;
 
-    final sanitizeName = widget.batch.name.replaceAll(RegExp(r'[^\w\s\-]'), '_');
+    final nameForFile = widget.container != null
+        ? '${widget.batch.name}_${widget.container!.title}'
+        : widget.batch.name;
+    final sanitizeName = nameForFile.replaceAll(RegExp(r'[^\w\s\-]'), '_');
     final fileName = 'Label_$sanitizeName.pdf';
 
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
@@ -91,11 +103,9 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
       );
 
       if (outputFile != null) {
-        // Получаем строковый путь из Uri
         final filePath = outputFile.toFilePath();
         final file = File(filePath);
 
-        // Страховка на случай, если ОС или диалог не записали байты автоматически
         if (!await file.exists() || await file.length() == 0) {
           await file.writeAsBytes(pdfBytes);
         }
@@ -109,6 +119,7 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
     } else {
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/$fileName');
+
       await file.writeAsBytes(pdfBytes);
 
       await Share.shareXFiles(

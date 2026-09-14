@@ -5,12 +5,21 @@ plugins {
 }
 
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
+import java.util.Properties
+import java.io.FileInputStream
 import ru.cian.rustore.publish.AppTypes
 import ru.cian.rustore.publish.BuildFormat
 import ru.cian.rustore.publish.DeveloperContacts
 import ru.cian.rustore.publish.MobileServicesType
 import ru.cian.rustore.publish.PublishType
 import ru.cian.rustore.publish.ReleaseNote
+
+// --- 1. Объявляем и загружаем keystoreProperties DO блока android ---
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
 
 @Suppress("DEPRECATION")
 android {
@@ -37,10 +46,19 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(System.getenv("KEYSTORE_FILE_PATH") ?: "keystore.jks")
-            storePassword = System.getenv("KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("KEY_ALIAS")
-            keyPassword = System.getenv("KEY_PASSWORD")
+            val keyPath = keystoreProperties.getProperty("storeFilePath") 
+                ?: System.getenv("KEYSTORE_FILE_PATH") 
+                ?: "keystore.jks"
+            storeFile = file(keyPath)
+
+            storePassword = keystoreProperties.getProperty("storePassword") 
+                ?: System.getenv("KEYSTORE_PASSWORD")
+
+            keyAlias = keystoreProperties.getProperty("keyAlias") 
+                ?: System.getenv("KEY_ALIAS")
+
+            keyPassword = keystoreProperties.getProperty("keyPassword") 
+                ?: System.getenv("KEY_PASSWORD")
         }
     }
 
@@ -62,17 +80,11 @@ android {
             val output = this as? ApkVariantOutputImpl
             if (output != null) {
                 val appName = "CiderOff"
-                val versionName = variant.versionName
-                output.outputFileName = "$appName-v$versionName.apk"
+                val vName = variant.versionName
+                output.outputFileName = "$appName-v$vName.apk"
             }
         }
     }    
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-    }
 }
 
 flutter {
@@ -87,7 +99,6 @@ dependencies {
 rustorePublish {
     instances {
         create("release") {
-            // Динамическое создание временного файла credentials из переменных окружения
             val keyIdEnv = System.getenv("RUSTORE_CLIENT_ID") ?: ""
             val privateKeyEnv = System.getenv("RUSTORE_PRIVATE_KEY") ?: ""
             
@@ -105,13 +116,16 @@ rustorePublish {
                 credentialsPath = "$rootDir/rustore-credentials-release.json"
             }
 
-            // Динамическое создание файла с заметками к релизу
             val releaseNotesFile = layout.buildDirectory.file("tmp/release-notes-ru.txt").get().asFile
             releaseNotesFile.parentFile.mkdirs()
             releaseNotesFile.writeText("Автоматическая сборка приложения CiderOff.")
 
             buildFormat = BuildFormat.APK
-            buildFile = layout.buildDirectory.file("outputs/apk/release/CiderOff-v1.0.4.apk").get().asFile.absolutePath
+            
+            // Динамически берем версию из flutter.versionName
+            val currentVersionName = flutter.versionName
+            buildFile = layout.buildDirectory.file("outputs/apk/release/CiderOff-v$currentVersionName.apk").get().asFile.absolutePath
+
             requestTimeout = 300
             mobileServicesType = MobileServicesType.UNKNOWN
             publishType = PublishType.INSTANTLY

@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../../data/datasources/database_service.dart';
+import '../../../data/models/batch_container_model.dart';
 import '../../../data/models/batch_model.dart';
 import '../../../data/models/label_template_model.dart';
 import 'label_preview_screen.dart';
+import 'upload_svg_template_dialog.dart';
 
 class LabelTemplateListScreen extends StatefulWidget {
   final Batch? batch;
+  final BatchContainer? selectedContainer;
 
-  const LabelTemplateListScreen({super.key, this.batch});
+  const LabelTemplateListScreen({
+    super.key,
+    this.batch,
+    this.selectedContainer,
+  });
 
   @override
   State<LabelTemplateListScreen> createState() => _LabelTemplateListScreenState();
@@ -53,9 +60,14 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
         itemCount: _templates.length,
         itemBuilder: (context, index) {
           final item = _templates[index];
+          final isSvg = item.schemaJson.contains('.svg') || item.schemaJson.contains('<svg');
+
           return Card(
             child: ListTile(
-              leading: const Icon(Icons.qr_code_2, color: Colors.amber),
+              leading: Icon(
+                isSvg ? Icons.extension_outlined : Icons.qr_code_2,
+                color: isSvg ? Colors.deepPurpleAccent : Colors.amber,
+              ),
               title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text('Размер: ${item.widthMm} × ${item.heightMm} мм'),
               onTap: widget.batch != null
@@ -83,10 +95,51 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddTemplateDialog,
+        onPressed: _showAddTemplateOptions,
         icon: const Icon(Icons.add),
-        label: const Text('Новый макет'),
+        label: const Text('Добавить макет'),
       ),
+    );
+  }
+
+  /// Меню выбора способа создания макета (стандартный или загрузка SVG)
+  void _showAddTemplateOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (bottomSheetContext) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.edit_note, color: Colors.amber),
+                title: const Text('Создать текстовый макет'),
+                subtitle: const Text('Задать ширину и высоту вручную'),
+                onTap: () {
+                  Navigator.pop(bottomSheetContext);
+                  _showAddTemplateDialog();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.upload_file, color: Colors.deepPurpleAccent),
+                title: const Text('Загрузить SVG-шаблон'),
+                subtitle: const Text('Импортировать готовый макет SVG'),
+                onTap: () async {
+                  Navigator.pop(bottomSheetContext);
+                  await showDialog(
+                    context: context,
+                    builder: (_) => const UploadSvgTemplateDialog(),
+                  );
+                  if (!mounted) return;
+                  _loadTemplates();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -97,6 +150,7 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
         MaterialPageRoute(
           builder: (_) => LabelPreviewScreen(
             batch: widget.batch!,
+            container: widget.selectedContainer,
             template: template,
           ),
         ),

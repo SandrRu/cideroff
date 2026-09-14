@@ -29,7 +29,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 10,
+      version: 12,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON;');
       },
@@ -123,7 +123,9 @@ class DatabaseService {
         name $textType,
         widthMm $realType,
         heightMm $realType,
-        schemaJson $textType
+        schemaJson $textType,
+        svgContent $textNullable,
+        isCustomSvg INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -244,7 +246,39 @@ class DatabaseService {
           isCustom INTEGER NOT NULL DEFAULT 0
         )
       ''');
-    }    
+    }
+
+    if (oldVersion < 11) {
+      await _addColumnIfNotExists(db, 'label_templates', 'svgContent', 'TEXT');
+      await _addColumnIfNotExists(db, 'label_templates', 'isCustomSvg', 'INTEGER NOT NULL DEFAULT 0');
+    }
+    if (oldVersion < 12) {
+      // Вставляем новые дефолтные дрожжи при обновлении до версии 12
+      const newYeasts = [
+        {
+          'id': 'yeast_safcider_tf6',
+          'name': 'Fermentis SafCider TF-6',
+          'category': 'Cider',
+          'description': 'Тутти-фрутти штамм. Взрывная фруктовая ароматика, идеальная округлость вкуса для изысканных сладких и полусладких традиционных сидров.',
+          'isCustom': 0,
+        },
+        {
+          'id': 'yeast_lalvin_71B',
+          'name': 'Lalvin 71B',
+          'category': 'Universal',
+          'description': 'Фруктово-ягодный штамм. Высокий ароматный потенциал, мягкое снижение кислотности для нежных фруктовых вин, полусладких сидров и медовух.',
+          'isCustom': 0,
+        },        
+      ];
+
+      for (final y in newYeasts) {
+        await db.insert(
+          'yeasts',
+          y,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    }
   }
 
   Future<void> _addColumnIfNotExists(
@@ -265,7 +299,7 @@ class DatabaseService {
   Future<void> insertBatch(Batch batch) async {
     final db = await instance.database;
     await db.transaction((txn) async {
-      await txn.insert('batches', batch.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+      await txn.insert('batches', batch.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
 
       if (batch.containers.isNotEmpty) {
         await txn.delete('batch_containers', where: 'batchId = ?', whereArgs: [batch.id]);
@@ -313,7 +347,7 @@ class DatabaseService {
     await db.transaction((txn) async {
       await txn.update(
         'batches',
-        batch.toJson(),
+        batch.toMap(),
         where: 'id = ?',
         whereArgs: [batch.id],
       );
@@ -529,7 +563,7 @@ class DatabaseService {
     );
   }
 
-// --- CRUD ДЛЯ ПОДСЛАСТИТЕЛЕЙ ---
+  // --- CRUD ДЛЯ ПОДСЛАСТИТЕЛЕЙ ---
 
   Future<void> insertSweetenerType(SweetenerType sweetener) async {
     final db = await instance.database;
@@ -566,9 +600,7 @@ class DatabaseService {
       await txn.delete('recipes', where: 'isCustom = 1');
       await txn.delete('yeasts', where: 'isCustom = 1');
       await txn.delete('drink_types', where: 'isCustom = 1');
-      await txn.delete('sweetener_types', where: 'isCustom = 1'); // <-- ОЧИСТКА ДОБАВЛЕНА
+      await txn.delete('sweetener_types', where: 'isCustom = 1');
     });
   }
-
-
 }

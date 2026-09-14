@@ -1,3 +1,4 @@
+// lib/presentation/screens/settings/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -165,7 +166,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
           ),
-
+          
           const Divider(),
 
           // Раздел: Облачная синхронизация Google Drive

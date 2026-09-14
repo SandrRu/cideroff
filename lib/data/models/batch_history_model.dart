@@ -61,7 +61,7 @@ class BatchHistory {
     return BatchHistory(
       id: json['id'] as String,
       batchId: json['batchId'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
+      timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ?? DateTime.now(),
       stepTitle: json['stepTitle'] as String,
       actionName: json['actionName'] as String,
       sugarMeasured: (json['sugarMeasured'] as num?)?.toDouble(),

@@ -84,6 +84,90 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     }
   }
 
+  /// Шаг 1: Окно выбора подпартии
+  void _startLabelGenerationProcess(BuildContext context, Batch batch) {
+    if (batch.containers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('У этой партии нет сформированных подпартий розлива.'),
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Выберите подпартию'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: batch.containers.length,
+              itemBuilder: (context, index) {
+                final container = batch.containers[index];
+                return ListTile(
+                  leading: const Icon(Icons.wine_bar, color: Colors.amber),
+                  title: Text(container.title),
+                  subtitle: Text(
+                    '${container.containerType} • ${container.count} шт. × ${container.containerVolumeLiters}л',
+                  ),
+                  onTap: () {
+                    Navigator.pop(dialogContext);
+                    _selectLabelTemplate(context, batch, container);
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Отмена'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Шаг 2: Окно выбора макета этикетки
+  void _selectLabelTemplate(
+    BuildContext context,
+    Batch batch,
+    BatchContainer selectedContainer,
+  ) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LabelTemplateListScreen(
+          batch: batch,
+          selectedContainer: selectedContainer,
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey)),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEditBatchDialog(BuildContext context, Batch batch) {
     final nameEditController = TextEditingController(text: batch.name);
     final notesEditController = TextEditingController(text: batch.notes);
@@ -334,14 +418,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
           IconButton(
             icon: const Icon(Icons.qr_code_2),
             tooltip: 'Макет этикетки',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => LabelTemplateListScreen(batch: batch),
-                ),
-              );
-            },
+            onPressed: () => _startLabelGenerationProcess(context, batch),
           ),
           IconButton(
             icon: const Icon(Icons.history, color: Colors.amber),
@@ -447,14 +524,7 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                       ],
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => LabelTemplateListScreen(batch: batch),
-                            ),
-                          );
-                        },
+                        onPressed: () => _startLabelGenerationProcess(context, batch),
                         icon: const Icon(Icons.label_outlined),
                         label: const Text('Сформировать этикетку'),
                       ),
@@ -697,8 +767,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                         await batchProvider.updateBatch(updatedYeastBatch);
                                       }
 
-                                      // Если в истории/заметках или шаге создаются подпартии, 
-                                      // формируем строку подпартий для добавления в заметку истории
                                       String stepNote = _noteController.text.trim();
                                       if (currentStep.isBottlingStep && _draftContainers.isNotEmpty) {
                                         final containerDetails = _draftContainers
@@ -813,25 +881,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.grey)),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
