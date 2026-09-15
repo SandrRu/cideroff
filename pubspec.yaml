@@ -45,6 +45,9 @@ dependencies:
   google_sign_in: ^7.2.0
   googleapis: ^17.0.0
   extension_google_sign_in_as_googleapis_auth: ^3.0.0
+  googleapis_auth: ^1.6.0  # Нужен для авторизации Desktop (Windows)
+  url_launcher: ^6.3.0     # Для открытия окна браузера на Windows
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:

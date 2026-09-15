@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io'; // Используется для Platform.isWindows / Platform.isAndroid
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
-// Импорт пакета расширения для получения авторизованного клиента (^3.0.0)
 import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
+import 'package:googleapis_auth/auth_io.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import 'export_import_service.dart';
 
@@ -20,15 +23,26 @@ class GoogleDriveSyncService {
     drive.DriveApi.driveFileScope,
   ];
 
+  // OAuth Client ID из Google Cloud Console для Windows (Тип: Desktop App)
+  static const String _windowsClientId = '643900758146-bdnnofe370setbdijqviodt4umfckm3i.apps.googleusercontent.com';
+  static const String _windowsClientSecret = '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';
+
   GoogleSignInAccount? _currentUser;
   bool _isInitialized = false;
 
-  /// Инициализация синглтона GoogleSignIn
+  // Авторизованный клиент для Windows Desktop
+  http.Client? _windowsAuthClient;
+
+  /// Проверка на Desktop платформу через dart:io
+  bool get _isDesktop => !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
+  /// Инициализация GoogleSignIn для мобильных/Web платформ
   Future<void> _ensureInitialized() async {
+    if (_isDesktop) return;
+
     if (!_isInitialized) {
       final signIn = GoogleSignIn.instance;
       
-      // В версии 7.x отслеживаем состояние текущего пользователя через события
       signIn.authenticationEvents.listen((GoogleSignInAuthenticationEvent event) {
         switch (event) {
           case GoogleSignInAuthenticationEventSignIn():
@@ -36,44 +50,66 @@ class GoogleDriveSyncService {
             break;
           case GoogleSignInAuthenticationEventSignOut():
             _currentUser = null;
+            _windowsAuthClient?.close();
+            _windowsAuthClient = null;
             break;
         }
       });
 
-      // Обязательная инициализация перед любыми вызовами API
       await signIn.initialize();
-      
-      // Пробуем тихо авторизоваться при старте приложения (заменяет старый signInSilently)
       unawaited(signIn.attemptLightweightAuthentication());
-      
       _isInitialized = true;
     }
   }
 
-  /// Вход через Google Sign-In
-  Future<GoogleSignInAccount?> signIn() async {
+  /// Вход через Google Sign-In или OAuth Loopback Flow (Windows)
+  Future<bool> signIn() async {
     try {
-      await _ensureInitialized();
-      
-      if (_currentUser != null) {
-        return _currentUser;
+      if (_isDesktop) {
+        if (_windowsAuthClient != null) return true;
+
+        final clientId = ClientId(
+          _windowsClientId,
+          _windowsClientSecret.isNotEmpty ? _windowsClientSecret : null,
+        );
+
+        _windowsAuthClient = await clientViaUserConsent(
+          clientId,
+          _scopes,
+          (String url) async {
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+        );
+
+        return _windowsAuthClient != null;
+      } else {
+        await _ensureInitialized();
+        if (_currentUser != null) return true;
+
+        final account = await GoogleSignIn.instance.authenticate();
+        _currentUser = account;
+        return _currentUser != null;
       }
-      
-      // В версии 7.x используется authenticate() вместо signIn()
-      final account = await GoogleSignIn.instance.authenticate();
-      return account;
     } catch (e) {
       debugPrint('Ошибка авторизации в Google: $e');
-      return null;
+      return false;
     }
   }
 
   /// Выход из аккаунта Google
   Future<void> signOut() async {
     try {
-      await _ensureInitialized();
-      // В версии 7.x используется disconnect() для полного выхода и отзыва токена
-      await GoogleSignIn.instance.disconnect();
+      if (_isDesktop) {
+        _windowsAuthClient?.close();
+        _windowsAuthClient = null;
+      } else {
+        await _ensureInitialized();
+        await GoogleSignIn.instance.disconnect();
+        _currentUser = null;
+      }
     } catch (e) {
       debugPrint('Ошибка выхода из Google Sign-In: $e');
     }
@@ -81,46 +117,48 @@ class GoogleDriveSyncService {
 
   /// Получение авторизованного клиента Drive API
   Future<drive.DriveApi?> _getDriveApi() async {
-    final account = await signIn();
-    if (account == null) {
+    final signedIn = await signIn();
+    if (!signedIn) {
       debugPrint('Пользователь не авторизован в Google');
       return null;
     }
 
     try {
-      // 1. Проверяем наличие разрешений на нужные scopes (теперь это отдельный шаг авторизации)
-      GoogleSignInClientAuthorization? authorization = await account.authorizationClient.authorizationForScopes(_scopes);
-      
-      // 2. Если разрешений нет, запрашиваем их у пользователя напрямую
-      authorization ??= await account.authorizationClient.authorizeScopes(_scopes);
+      if (_isDesktop) {
+        if (_windowsAuthClient == null) return null;
+        return drive.DriveApi(_windowsAuthClient!);
+      } else {
+        final account = _currentUser;
+        if (account == null) return null;
 
-      if (authorization == null) {
-        debugPrint('Не удалось получить авторизацию для требуемых scopes Drive API');
-        return null;
+        GoogleSignInClientAuthorization? authorization =
+            await account.authorizationClient.authorizationForScopes(_scopes);
+        
+        authorization ??= await account.authorizationClient.authorizeScopes(_scopes);
+
+        if (authorization == null) {
+          debugPrint('Не удалось получить авторизацию для требуемых scopes Drive API');
+          return null;
+        }
+
+        final httpClient = authorization.authClient(scopes: _scopes);
+        return drive.DriveApi(httpClient);
       }
-
-      // 3. Получаем HTTP-клиент с помощью extension_google_sign_in_as_googleapis_auth ^3.0.0
-      // Метод теперь называется authClient(scopes: ...), и применяется к authorization
-      final httpClient = authorization.authClient(scopes: _scopes);
-
-      return drive.DriveApi(httpClient);
     } catch (e) {
       debugPrint('Ошибка при получении клиента Drive API: $e');
       return null;
     }
   }
 
-  /// Загрузка резервной копии базы данных в Google Drive (в папку appDataFolder)
+  /// Загрузка резервной копии базы данных в Google Drive
   Future<bool> uploadBackup() async {
     try {
       final driveApi = await _getDriveApi();
       if (driveApi == null) return false;
 
-      // 1. Сериализуем данные
       final jsonString = await ExportImportService().generateBackupJsonString();
       final bytes = utf8.encode(jsonString);
 
-      // 2. Ищем существующий файл резервной копии в appDataFolder
       final fileList = await driveApi.files.list(
         q: "name = '$_backupFileName' and 'appDataFolder' in parents and trashed = false",
         spaces: 'appDataFolder',
@@ -130,7 +168,6 @@ class GoogleDriveSyncService {
       final media = drive.Media(mediaStream, bytes.length);
 
       if (fileList.files != null && fileList.files!.isNotEmpty) {
-        // Обновляем существующий файл
         final existingFileId = fileList.files!.first.id!;
         final driveFile = drive.File();
         await driveApi.files.update(
@@ -140,7 +177,6 @@ class GoogleDriveSyncService {
         );
         debugPrint('Резервная копия успешно обновлена в Google Drive (ID: $existingFileId)');
       } else {
-        // Создаем новый файл
         final driveFile = drive.File()
           ..name = _backupFileName
           ..parents = ['appDataFolder'];
@@ -166,7 +202,6 @@ class GoogleDriveSyncService {
       final driveApi = await _getDriveApi();
       if (driveApi == null) return false;
 
-      // 1. Находим файл бэкапа
       final fileList = await driveApi.files.list(
         q: "name = '$_backupFileName' and 'appDataFolder' in parents and trashed = false",
         spaces: 'appDataFolder',
@@ -179,7 +214,6 @@ class GoogleDriveSyncService {
 
       final fileId = fileList.files!.first.id!;
 
-      // 2. Скачиваем медиа-содержимое
       final dynamic response = await driveApi.files.get(
         fileId,
         downloadOptions: drive.DownloadOptions.fullMedia,
@@ -192,8 +226,6 @@ class GoogleDriveSyncService {
         }
 
         final jsonString = utf8.decode(dataBytes);
-
-        // 3. Восстанавливаем базу через ExportImportService
         return await ExportImportService().importBackupFromJsonString(jsonString);
       } else {
         debugPrint('Некорректный формат ответа от Google Drive API');

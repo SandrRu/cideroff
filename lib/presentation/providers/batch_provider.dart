@@ -71,7 +71,8 @@ class BatchProvider extends ChangeNotifier {
     final history = BatchHistory(
       batchId: batch.id,
       timestamp: pressDate,
-      stepTitle: firstStep?.getTitle('ru') ?? 'Запуск партии',
+      // Явно указываем заголовок системного события:
+      stepTitle: 'Создание партии', // firstStep?.getTitle('ru') ?? 'Запуск партии'
       actionName: 'Партия создана по рецепту "${recipe.getTitle('ru')}" (${type == BatchType.calvados ? 'Кальвадос' : 'Сидр'})',
       sugarMeasured: initialSugar,
       note: notes,

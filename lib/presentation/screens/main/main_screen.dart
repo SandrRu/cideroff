@@ -321,9 +321,9 @@ class _BatchCard extends StatelessWidget {
                       Expanded(
                         child: Selector<RecipeProvider, String>(
                           selector: (_, recipeProvider) {
-                            if (batch.notes.trim().isNotEmpty) {
-                              return batch.notes.trim();
-                            }
+                            // if (batch.notes.trim().isNotEmpty) {
+                            //   return batch.notes.trim();
+                            // }
 
                             Recipe? foundRecipe;
 

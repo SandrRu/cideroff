@@ -2,19 +2,48 @@
 import 'package:intl/intl.dart';
 import '../data/models/batch_model.dart';
 import '../data/models/batch_container_model.dart';
+import '../data/models/drink_type_model.dart';
 
 class SvgLabelProcessor {
+
+  /// Определяет название типа сладости по итоговой плотности подпартии
+  static String getSweetnessCategory(double finalSugarGramsPer100ml, List<DrinkType>? drinkTypes) {
+    final sugarGramsPerLiter = finalSugarGramsPer100ml * 10.0;
+
+    if (drinkTypes != null && drinkTypes.isNotEmpty) {
+      for (final type in drinkTypes) {
+        if (sugarGramsPerLiter >= type.minSugarGramsPerLiter &&
+            sugarGramsPerLiter <= type.maxSugarGramsPerLiter) {
+          return type.name;
+        }
+      }
+    }
+    
+    // Базовый fallback, если список пуст или сахар вышел за пределы пользовательских DrinkType
+    if (sugarGramsPerLiter <= 15.0) {
+      return 'Сухой';
+    } else if (sugarGramsPerLiter <= 30.0) {
+      return 'Полусухой';
+    } else if (sugarGramsPerLiter <= 50.0) {
+      return 'Полусладкий';
+    } else {
+      return 'Сладкий';
+    }
+  }  
+  
   static String injectData({
     required String rawSvg,
     required Batch batch,
     required BatchContainer container,
     String? yeastName,
+    List<DrinkType>? drinkTypes,    
   }) {
     final dateFormat = DateFormat('dd.MM.yyyy');
     
     // Расчет параметров подпартии
     final finalSugar = container.getCalculatedFinalSugar(batch.finalSugar ?? 0.0);
     final abvText = batch.finalAlcohol != null ? '${batch.finalAlcohol!.toStringAsFixed(1)}%' : '0.0%';
+    final sweetnessCategory = getSweetnessCategory(finalSugar, drinkTypes);
     
     String sweetenerInfo = 'Без подсластителя';
     if (container.sweetenerType != null && container.sweetenerAmountGramsPerLiter > 0) {
@@ -47,6 +76,14 @@ class SvgLabelProcessor {
       '{{bottling_date}}': formattedBottlingDate,
       '{{BOTTLING_DATE}}': formattedBottlingDate,
       '{{BOTTLING DATE}}': formattedBottlingDate,
+
+      // Сладость / Категория напитка (DrinkType)
+      '{{sweetness_category}}': sweetnessCategory,
+      '{{SWEETNESS_CATEGORY}}': sweetnessCategory,
+      '{{SWEETNESS CATEGORY}}': sweetnessCategory,
+      '{{drink_type}}': sweetnessCategory,
+      '{{DRINK_TYPE}}': sweetnessCategory,
+      '{sweetness_category}': sweetnessCategory,
 
       // Крепость и Сахар
       '{{abv}}': abvText,
