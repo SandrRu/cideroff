@@ -42,7 +42,7 @@ $RECYCLE.BIN/
 .idea/
 
 # VS Code
-#.vscode/
+.vscode/
 
 # Flutter / Dart related
 **/doc/api/
