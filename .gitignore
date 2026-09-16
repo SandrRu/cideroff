@@ -17,6 +17,7 @@ site/
 migrate_working_dir/
 project_code.txt
 antigravity.yaml
+prompt.txt
 
 # Windows specific
 Thumbs.db
