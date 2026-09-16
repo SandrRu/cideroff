@@ -24,7 +24,7 @@ class GoogleDriveSyncService {
   ];
 
   // OAuth Client ID из Google Cloud Console для Windows (Тип: Desktop App)
-  //static const String _windowsClientId = 'XXXXXX.apps.googleusercontent.com';
+  //static const String _windowsClientId = 'XXXXXX';
   //static const String _windowsClientSecret = 'XXXXXXX';
   // Получение значений из флагов сборки --dart-define
   static const String _windowsClientId = String.fromEnvironment('WINDOWS_CLIENT_ID');
