@@ -46,8 +46,8 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.container != null 
-              ? 'Этикетка: ${widget.container!.title}' 
+          widget.container != null
+              ? 'Этикетка: ${widget.container!.title}'
               : 'Этикетка: ${widget.batch.name}',
         ),
         actions: [
@@ -64,7 +64,8 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
             child: PdfPreview(
               build: (format) => LabelPdfService.generateLabelPdf(
                 batch: widget.batch,
-                container: widget.container, // 👈 Передаем подпартию в генератор
+                container:
+                    widget.container, // 👈 Передаем подпартию в генератор
                 template: _selectedTemplate,
               ),
               allowPrinting: true,
@@ -122,9 +123,11 @@ class _LabelPreviewScreenState extends State<LabelPreviewScreen> {
 
       await file.writeAsBytes(pdfBytes);
 
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: 'Этикетка сидра: ${widget.batch.name}',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'Этикетка сидра: ${widget.batch.name}',
+        ),
       );
     }
   }

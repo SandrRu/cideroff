@@ -8,8 +8,8 @@ enum BatchStatus {
   archived;
 
   String toJson() => name;
-  static BatchStatus fromJson(String json) =>
-      BatchStatus.values.firstWhere((e) => e.name == json, orElse: () => BatchStatus.inProgress);
+  static BatchStatus fromJson(String json) => BatchStatus.values
+      .firstWhere((e) => e.name == json, orElse: () => BatchStatus.inProgress);
 }
 
 enum BatchType {
@@ -17,8 +17,8 @@ enum BatchType {
   calvados;
 
   String toJson() => name;
-  static BatchType fromJson(String json) =>
-      BatchType.values.firstWhere((e) => e.name == json, orElse: () => BatchType.cider);
+  static BatchType fromJson(String json) => BatchType.values
+      .firstWhere((e) => e.name == json, orElse: () => BatchType.cider);
 }
 
 class Batch {
@@ -26,36 +26,37 @@ class Batch {
   final String name;
   final String appleVariety;
   final double initialSugar; // г/100мл
-  final double juiceVolume;   // литры
+  final double juiceVolume; // литры
   final DateTime pressDate;
   final BatchStatus status;
-  final BatchType type;      // Тип партии: Сидр или Кальвадос
-  
+  final BatchType type; // Тип партии: Сидр или Кальвадос
+
   final String? currentRecipeId;
   final int? currentStepIndex;
   final DateTime? nextStepDate;
-  final String? yeastId;     // Связь со справочником дрожжей
-  
+  final String? yeastId; // Связь со справочником дрожжей
+
   // Данные розлива и подпартий
   final String? containerType;
   final int? containerCount;
   final double? finalSugar;
   final double? finalAlcohol;
-  final double? primingSugarGrams;        // Катализатор / Декстроза (г/л)
+  final double? primingSugarGrams; // Катализатор / Декстроза (г/л)
   final double? nonFermentableSugarGrams; // Несбраживаемые сахара, г/л
-  final double? finalSugarWithPriming;    // Расчётная сладость / Итоговый сахар (г/100мл)
-  final double? lossVolume;              // Объем осадка / потерь (л)
+  final double?
+      finalSugarWithPriming; // Расчётная сладость / Итоговый сахар (г/100мл)
+  final double? lossVolume; // Объем осадка / потерь (л)
   final List<BatchContainer> containers; // Список подпартий розлива
   final String notes;
 
   // --- Поля Кальвадоса (Дистилляция и Выдержка) ---
-  final double? rawSpiritVolume;  // Объем спирта-сырца (л)
-  final double? rawSpiritABV;     // Крепость спирта-сырца (% об.)
+  final double? rawSpiritVolume; // Объем спирта-сырца (л)
+  final double? rawSpiritABV; // Крепость спирта-сырца (% об.)
   final double? distillateVolume; // Объем "сердца" / дистиллята (л)
-  final double? distillateABV;    // Крепость дистиллята (% об.)
+  final double? distillateABV; // Крепость дистиллята (% об.)
   final double? barrelDilutedABV; // Крепость при заливке в бочку (% об.)
   final DateTime? agingStartDate; // Дата начала выдержки
-  final String? barrelNotes;      // Параметры бочки / щепы
+  final String? barrelNotes; // Параметры бочки / щепы
 
   Batch({
     String? id,
@@ -121,56 +122,75 @@ class Batch {
   }
 
   Batch copyWith({
-    String? id,
-    String? name,
-    String? appleVariety,
-    double? initialSugar,
-    double? juiceVolume,
-    DateTime? pressDate,
-    BatchStatus? status,
-    BatchType? type,
-    String? currentRecipeId,
-    int? currentStepIndex,
-    DateTime? nextStepDate,
-    String? yeastId,
-    String? containerType,
-    int? containerCount,
-    double? finalSugar,
-    double? finalAlcohol,
-    double? primingSugarGrams,
-    double? nonFermentableSugarGrams,
-    double? finalSugarWithPriming,
-    double? lossVolume,
-    List<BatchContainer>? containers,
-    String? notes,
-    double? rawSpiritVolume,
-    double? rawSpiritABV,
-    double? distillateVolume,
-    double? distillateABV,
-    double? barrelDilutedABV,
-    DateTime? agingStartDate,
-    String? barrelNotes,
-  }) {
-    return Batch(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      appleVariety: appleVariety ?? this.appleVariety,
-      initialSugar: initialSugar ?? this.initialSugar,
-      juiceVolume: juiceVolume ?? this.juiceVolume,
-      pressDate: pressDate ?? this.pressDate,
-      status: status ?? this.status,
-      type: type ?? this.type,
-      currentRecipeId: currentRecipeId ?? this.currentRecipeId,
-      currentStepIndex: currentStepIndex ?? this.currentStepIndex,
-      nextStepDate: nextStepDate ?? this.nextStepDate,
-      yeastId: yeastId ?? this.yeastId,
-      containerType: containerType ?? this.containerType,
-      containerCount: containerCount ?? this.containerCount,
-      finalSugar: finalSugar ?? this.finalSugar,
-      finalAlcohol: finalAlcohol ?? this.finalAlcohol,
+      String? id,
+      String? name,
+      String? appleVariety,
+      double? initialSugar,
+      double? juiceVolume,
+      DateTime? pressDate,
+      BatchStatus? status,
+      BatchType? type,
+      String? currentRecipeId,
+      int? currentStepIndex,
+      DateTime? nextStepDate,
+      String? yeastId,
+      String? containerType,
+      int? containerCount,
+      double? finalSugar,
+      double? finalAlcohol,
+      double? primingSugarGrams,
+      double? nonFermentableSugarGrams,
+      double? finalSugarWithPriming,
+      double? lossVolume,
+      List<BatchContainer>? containers,
+      String? notes,
+      double? rawSpiritVolume,
+      double? rawSpiritABV,
+      double? distillateVolume,
+      double? distillateABV,
+      double? barrelDilutedABV,
+      DateTime? agingStartDate,
+      String? barrelNotes,
+      // Флаги явной очистки nullable-полей: без них copyWith
+      // не может присвоить null, т.к. везде используется ??.
+      bool clearCurrentRecipeId = false,
+      bool clearCurrentStepIndex = false,
+      bool clearNextStepDate = false,
+      bool clearFinalSugar = false,
+      bool clearFinalAlcohol = false,
+      bool clearContainerType = false,
+      bool clearContainerCount = false,
+      bool clearAgingStartDate = false,
+    }) {
+      return Batch(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        appleVariety: appleVariety ?? this.appleVariety,
+        initialSugar: initialSugar ?? this.initialSugar,
+        juiceVolume: juiceVolume ?? this.juiceVolume,
+        pressDate: pressDate ?? this.pressDate,
+        status: status ?? this.status,
+        type: type ?? this.type,
+        currentRecipeId:
+            clearCurrentRecipeId ? null : (currentRecipeId ?? this.currentRecipeId),
+        currentStepIndex: clearCurrentStepIndex
+            ? null
+            : (currentStepIndex ?? this.currentStepIndex),
+        nextStepDate:
+            clearNextStepDate ? null : (nextStepDate ?? this.nextStepDate),
+        yeastId: yeastId ?? this.yeastId,
+            containerType:
+          clearContainerType ? null : (containerType ?? this.containerType),
+      containerCount:
+          clearContainerCount ? null : (containerCount ?? this.containerCount),
+      finalSugar: clearFinalSugar ? null : (finalSugar ?? this.finalSugar),
+      finalAlcohol:
+          clearFinalAlcohol ? null : (finalAlcohol ?? this.finalAlcohol),
       primingSugarGrams: primingSugarGrams ?? this.primingSugarGrams,
-      nonFermentableSugarGrams: nonFermentableSugarGrams ?? this.nonFermentableSugarGrams,
-      finalSugarWithPriming: finalSugarWithPriming ?? this.finalSugarWithPriming,
+      nonFermentableSugarGrams:
+          nonFermentableSugarGrams ?? this.nonFermentableSugarGrams,
+      finalSugarWithPriming:
+          finalSugarWithPriming ?? this.finalSugarWithPriming,
       lossVolume: lossVolume ?? this.lossVolume,
       containers: containers ?? this.containers,
       notes: notes ?? this.notes,
@@ -179,7 +199,8 @@ class Batch {
       distillateVolume: distillateVolume ?? this.distillateVolume,
       distillateABV: distillateABV ?? this.distillateABV,
       barrelDilutedABV: barrelDilutedABV ?? this.barrelDilutedABV,
-      agingStartDate: agingStartDate ?? this.agingStartDate,
+      agingStartDate:
+          clearAgingStartDate ? null : (agingStartDate ?? this.agingStartDate),
       barrelNotes: barrelNotes ?? this.barrelNotes,
     );
   }
@@ -220,11 +241,13 @@ class Batch {
   /// Сериализация для локальной БД SQLite (исключает поля связей)
   Map<String, dynamic> toMap() {
     final map = toJson();
-    map.remove('containers'); // Удаляем containers, так как они сохраняются в отдельную таблицу batch_containers
+    map.remove(
+        'containers'); // Удаляем containers, так как они сохраняются в отдельную таблицу batch_containers
     return map;
   }
 
-  factory Batch.fromJson(Map<String, dynamic> json, {List<BatchContainer> containers = const []}) {
+  factory Batch.fromJson(Map<String, dynamic> json,
+      {List<BatchContainer> containers = const []}) {
     DateTime parseDate(dynamic val) {
       if (val is String && val.isNotEmpty) {
         final parsed = DateTime.tryParse(val);
@@ -241,10 +264,11 @@ class Batch {
     }
 
     List<BatchContainer> parsedContainers = List.from(containers);
-    
+
     // Если containers не был явно передан в аргументы, пробуем распарсить его из JSON
     if (parsedContainers.isEmpty && json['containers'] != null) {
-      if (json['containers'] is String && (json['containers'] as String).isNotEmpty) {
+      if (json['containers'] is String &&
+          (json['containers'] as String).isNotEmpty) {
         try {
           final decodedList = jsonDecode(json['containers'] as String) as List;
           parsedContainers = decodedList
@@ -257,7 +281,7 @@ class Batch {
             .toList();
       }
     }
-    
+
     return Batch(
       id: json['id'] as String? ?? const Uuid().v4(),
       name: json['name'] as String? ?? 'Партия',
@@ -276,8 +300,10 @@ class Batch {
       finalSugar: (json['finalSugar'] as num?)?.toDouble(),
       finalAlcohol: (json['finalAlcohol'] as num?)?.toDouble(),
       primingSugarGrams: (json['primingSugarGrams'] as num?)?.toDouble(),
-      nonFermentableSugarGrams: (json['nonFermentableSugarGrams'] as num?)?.toDouble(),
-      finalSugarWithPriming: (json['finalSugarWithPriming'] as num?)?.toDouble(),
+      nonFermentableSugarGrams:
+          (json['nonFermentableSugarGrams'] as num?)?.toDouble(),
+      finalSugarWithPriming:
+          (json['finalSugarWithPriming'] as num?)?.toDouble(),
       lossVolume: (json['lossVolume'] as num?)?.toDouble(),
       containers: parsedContainers,
       notes: json['notes'] as String? ?? '',
@@ -291,7 +317,8 @@ class Batch {
     );
   }
 
-  factory Batch.fromMap(Map<String, dynamic> map, {List<BatchContainer> containers = const []}) {
+  factory Batch.fromMap(Map<String, dynamic> map,
+      {List<BatchContainer> containers = const []}) {
     return Batch.fromJson(map, containers: containers);
   }
 }

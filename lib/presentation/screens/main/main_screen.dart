@@ -18,7 +18,8 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateMixin {
+class _MainScreenState extends State<MainScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   BatchSortOption _sortOption = BatchSortOption.pressDate;
   bool _isAscending = false;
@@ -44,11 +45,17 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
           comparison = a.pressDate.compareTo(b.pressDate);
           break;
         case BatchSortOption.nextStepDate:
-          final aDate = a.nextStepDate ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final bDate = b.nextStepDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final aDate =
+              a.nextStepDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bDate =
+              b.nextStepDate ?? DateTime.fromMillisecondsSinceEpoch(0);
           comparison = aDate.compareTo(bDate);
           break;
-        case BatchSortOption.bottleDate:
+                case BatchSortOption.bottleDate:
+          // Точная дата розлива хранится только в истории партии и требует
+          // async-загрузки, поэтому для сортировки используем плановую дату
+          // следующего шага, затем дату отжима. Для завершённых партий
+          // следующего шага нет — они сортируются по дате отжима.
           final aDate = a.nextStepDate ?? a.pressDate;
           final bDate = b.nextStepDate ?? b.pressDate;
           comparison = aDate.compareTo(bDate);
@@ -71,7 +78,8 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CiderOff', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('CiderOff',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
           tabs: [
@@ -117,19 +125,29 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
         children: [
           const Icon(Icons.sort, size: 20, color: Colors.amber),
           const SizedBox(width: 8),
-          const Text('Сортировка:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          const Text('Сортировка:',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
           const SizedBox(width: 8),
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<BatchSortOption>(
                 value: _sortOption,
                 isExpanded: true,
-                style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color),
+                style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).textTheme.bodyMedium?.color),
                 items: const [
-                  DropdownMenuItem(value: BatchSortOption.pressDate, child: Text('По дате отжима')),
-                  DropdownMenuItem(value: BatchSortOption.nextStepDate, child: Text('По дате след. шага')),
-                  DropdownMenuItem(value: BatchSortOption.bottleDate, child: Text('По дате розлива')),
-                  DropdownMenuItem(value: BatchSortOption.name, child: Text('По названию')),
+                  DropdownMenuItem(
+                      value: BatchSortOption.pressDate,
+                      child: Text('По дате отжима')),
+                  DropdownMenuItem(
+                      value: BatchSortOption.nextStepDate,
+                      child: Text('По дате след. шага')),
+                  DropdownMenuItem(
+                      value: BatchSortOption.bottleDate,
+                      child: Text('По дате розлива')),
+                  DropdownMenuItem(
+                      value: BatchSortOption.name, child: Text('По названию')),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -140,8 +158,10 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
             ),
           ),
           IconButton(
-            icon: Icon(_isAscending ? Icons.arrow_upward : Icons.arrow_downward, size: 20, color: Colors.amber),
-            tooltip: _isAscending ? 'ASC (по возрастанию)' : 'DESC (по убыванию)',
+            icon: Icon(_isAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                size: 20, color: Colors.amber),
+            tooltip:
+                _isAscending ? 'ASC (по возрастанию)' : 'DESC (по убыванию)',
             onPressed: () {
               setState(() => _isAscending = !_isAscending);
             },
@@ -234,7 +254,10 @@ class _BatchCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             batch.name,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
                             maxLines: 1,
@@ -251,15 +274,19 @@ class _BatchCard extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       backgroundColor: isCompleted
                           ? Colors.green.shade100
-                          : (isCalvados ? Colors.orange.shade100 : Colors.amber.shade100),
+                          : (isCalvados
+                              ? Colors.orange.shade100
+                              : Colors.amber.shade100),
                       label: Text(
-                        isCompleted 
-                            ? (isCalvados ? 'Выдержан' : 'Разлито') 
+                        isCompleted
+                            ? (isCalvados ? 'Выдержан' : 'Разлито')
                             : (isCalvados ? 'Перегон / Бочка' : 'Бродильня'),
                         style: TextStyle(
                           color: isCompleted
                               ? Colors.green.shade900
-                              : (isCalvados ? Colors.orange.shade900 : Colors.amber.shade900),
+                              : (isCalvados
+                                  ? Colors.orange.shade900
+                                  : Colors.amber.shade900),
                         ),
                       ),
                     ),
@@ -281,19 +308,23 @@ class _BatchCard extends StatelessWidget {
                     if (settings.showVolume)
                       Text(
                         '${batch.juiceVolume} л сока',
-                        style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.w500),
                       )
                     else
                       const SizedBox.shrink(),
                   ],
                 ),
               ],
-              
-              if (settings.showAgingDays && isCalvados && batch.daysInAging != null) ...[
+              if (settings.showAgingDays &&
+                  isCalvados &&
+                  batch.daysInAging != null) ...[
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.wine_bar_outlined, size: 16, color: Colors.brown),
+                    const Icon(Icons.wine_bar_outlined,
+                        size: 16, color: Colors.brown),
                     const SizedBox(width: 4),
                     Text(
                       'Выдерживается: ${batch.daysInAging} дн.',
@@ -306,17 +337,19 @@ class _BatchCard extends StatelessWidget {
                   ],
                 ),
               ],
-
-              if (!isCompleted && (settings.showNextStepTitle || settings.showNextStepDate || settings.showDaysLeft)) ...[
+              if (!isCompleted &&
+                  (settings.showNextStepTitle ||
+                      settings.showNextStepDate ||
+                      settings.showDaysLeft)) ...[
                 const Divider(height: 20),
-
                 if (settings.showNextStepTitle) ...[
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Следующий шаг: ',
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                        style: TextStyle(
+                            fontSize: 13, color: Colors.grey.shade600),
                       ),
                       Expanded(
                         child: Selector<RecipeProvider, String>(
@@ -327,7 +360,8 @@ class _BatchCard extends StatelessWidget {
 
                             Recipe? foundRecipe;
 
-                            if (batch.currentRecipeId != null && recipeProvider.recipes.isNotEmpty) {
+                            if (batch.currentRecipeId != null &&
+                                recipeProvider.recipes.isNotEmpty) {
                               final matches = recipeProvider.recipes
                                   .where((r) => r.id == batch.currentRecipeId)
                                   .toList();
@@ -336,19 +370,27 @@ class _BatchCard extends StatelessWidget {
                               }
                             }
 
-                            if (foundRecipe == null && recipeProvider.recipes.isNotEmpty) {
-                              final isCalvados = batch.type == BatchType.calvados;
+                            if (foundRecipe == null &&
+                                recipeProvider.recipes.isNotEmpty) {
+                              final isCalvados =
+                                  batch.type == BatchType.calvados;
                               foundRecipe = recipeProvider.recipes.firstWhere(
                                 (r) {
-                                  final isRecipeCalvados = r.id.contains('calvados') ||
-                                      (r.title['ru'] ?? '').toLowerCase().contains('кальвадос');
-                                  return isCalvados ? isRecipeCalvados : !isRecipeCalvados;
+                                  final isRecipeCalvados =
+                                      r.id.contains('calvados') ||
+                                          (r.title['ru'] ?? '')
+                                              .toLowerCase()
+                                              .contains('кальвадос');
+                                  return isCalvados
+                                      ? isRecipeCalvados
+                                      : !isRecipeCalvados;
                                 },
                                 orElse: () => recipeProvider.recipes.first,
                               );
                             }
 
-                            if (foundRecipe != null && foundRecipe.steps.isNotEmpty) {
+                            if (foundRecipe != null &&
+                                foundRecipe.steps.isNotEmpty) {
                               final stepIdx = batch.currentStepIndex ?? 0;
                               if (stepIdx < foundRecipe.steps.length) {
                                 final step = foundRecipe.steps[stepIdx];
@@ -364,7 +406,8 @@ class _BatchCard extends StatelessWidget {
                           builder: (context, stepTitle, _) {
                             return Text(
                               stepTitle,
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 13),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             );
@@ -375,14 +418,14 @@ class _BatchCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                 ],
-
                 if (settings.showNextStepDate)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'Дата выполнения:',
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                        style: TextStyle(
+                            fontSize: 13, color: Colors.grey.shade600),
                       ),
                       Text(
                         batch.nextStepDate != null
@@ -392,8 +435,8 @@ class _BatchCard extends StatelessWidget {
                       ),
                     ],
                   ),
-
-                if (settings.showDaysLeft && batch.daysUntilNextStep != null) ...[
+                if (settings.showDaysLeft &&
+                    batch.daysUntilNextStep != null) ...[
                   const SizedBox(height: 4),
                   Text(
                     'Осталось: ${batch.daysUntilNextStep} дн.',
@@ -403,13 +446,17 @@ class _BatchCard extends StatelessWidget {
                     ),
                   ),
                 ],
-              ] else if (isCompleted && (settings.showSugar || settings.showAlcohol || settings.showContainers)) ...[
+              ] else if (isCompleted &&
+                  (settings.showSugar ||
+                      settings.showAlcohol ||
+                      settings.showContainers)) ...[
                 const Divider(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     if (settings.showSugar)
-                      Text('Сахар: ${batch.finalSugar ?? batch.initialSugar} г/100мл'),
+                      Text(
+                          'Сахар: ${batch.finalSugar ?? batch.initialSugar} г/100мл'),
                     if (settings.showAlcohol)
                       Text('Алкоголь: ${batch.finalAlcohol ?? 0}% об.'),
                   ],
@@ -419,7 +466,8 @@ class _BatchCard extends StatelessWidget {
                   if (batch.containers.isNotEmpty) ...[
                     Text(
                       'Подпартии/Тара (${batch.containers.length}):',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                     const SizedBox(height: 2),
                     ...batch.containers.map((c) => Padding(
@@ -427,14 +475,19 @@ class _BatchCard extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('• ${c.title} (${c.containerType})', style: const TextStyle(fontSize: 12)),
-                              Text('${c.count} шт. × ${c.containerVolumeLiters}л (${c.totalVolumeLiters.toStringAsFixed(1)}л)',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              Text('• ${c.title} (${c.containerType})',
+                                  style: const TextStyle(fontSize: 12)),
+                              Text(
+                                  '${c.count} шт. × ${c.containerVolumeLiters}л (${c.totalVolumeLiters.toStringAsFixed(1)}л)',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
                             ],
                           ),
                         )),
                   ] else
-                    Text('Тара: ${batch.containerType ?? "—"} (${batch.containerCount ?? 0} шт.)'),
+                    Text(
+                        'Тара: ${batch.containerType ?? "—"} (${batch.containerCount ?? 0} шт.)'),
                 ],
               ],
             ],

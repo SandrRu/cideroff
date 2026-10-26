@@ -5,6 +5,7 @@ import '../../data/models/batch_model.dart';
 import '../../data/models/batch_container_model.dart';
 import '../../data/models/batch_history_model.dart';
 import '../../data/models/recipe_model.dart';
+import '../../data/models/batch_recipe_link_model.dart';
 import '../../services/notification_service.dart';
 
 class BatchProvider extends ChangeNotifier {
@@ -66,24 +67,84 @@ class BatchProvider extends ChangeNotifier {
       agingStartDate: type == BatchType.calvados ? pressDate : null,
     );
 
-    await _db.insertBatch(batch);
-
     final history = BatchHistory(
       batchId: batch.id,
       timestamp: pressDate,
-      // Явно указываем заголовок системного события:
-      stepTitle: 'Создание партии', // firstStep?.getTitle('ru') ?? 'Запуск партии'
-      actionName: 'Партия создана по рецепту "${recipe.getTitle('ru')}" (${type == BatchType.calvados ? 'Кальвадос' : 'Сидр'})',
+      stepTitle: 'Создание партии',
+      actionName:
+          'Партия создана по рецепту "${recipe.getTitle('ru')}" (${type == BatchType.calvados ? 'Кальвадос' : 'Сидр'})',
       sugarMeasured: initialSugar,
       note: notes,
     );
-    await _db.insertHistory(history);
+
+    // Партия, связь с рецептом и первая запись истории — одной транзакцией.
+    await _db.insertBatch(
+      batch,
+      recipeLinks: [
+        BatchRecipeLink(
+          batchId: batch.id,
+          recipeId: recipe.id,
+          sequenceOrder: 1,
+          assignedAt: pressDate.toIso8601String(),
+        ),
+      ],
+      history: history,
+    );
 
     if (nextDate != null && firstStep != null) {
       await _scheduleReminders(batch, firstStep, nextDate);
     }
 
     await loadBatches();
+  }
+
+  /// Привязать дополнительный рецепт/этап к партии через таблицу batch_recipes
+  Future<void> attachRecipeToBatch({
+    required String batchId,
+    required Recipe recipe,
+    int sequenceOrder = 1,
+    String? notes,
+  }) async {
+    await _db.linkRecipeToBatch(
+      batchId: batchId,
+      recipeId: recipe.id,
+      sequenceOrder: sequenceOrder,
+      notes: notes,
+    );
+
+    // Обновляем текущий рецепт партии
+    final currentBatch = await _db.getBatchById(batchId);
+    if (currentBatch != null) {
+      final firstStep = recipe.steps.isNotEmpty ? recipe.steps.first : null;
+      final now = DateTime.now();
+      final nextDate = firstStep != null
+          ? now.add(Duration(days: firstStep.durationDays))
+          : null;
+
+      final updated = currentBatch.copyWith(
+        currentRecipeId: recipe.id,
+        currentStepIndex: 0,
+        nextStepDate: nextDate,
+        status: BatchStatus.inProgress,
+      );
+      await _db.updateBatch(updated);
+
+      if (firstStep != null && nextDate != null) {
+        await _scheduleReminders(updated, firstStep, nextDate);
+      }
+    }
+
+    await loadBatches();
+  }
+
+  /// Получить все рецепты, привязанные к конкретной партии
+  Future<List<Recipe>> getRecipesForBatch(String batchId) async {
+    return await _db.getRecipesForBatch(batchId);
+  }
+
+  /// Получить все связи для конкретной партии
+  Future<List<BatchRecipeLink>> getRecipeLinksForBatch(String batchId) async {
+    return await _db.getRecipeLinksForBatch(batchId);
   }
 
   Future<void> completeCurrentStep({
@@ -116,8 +177,6 @@ class BatchProvider extends ChangeNotifier {
       nonFermentableSugarGrams: nonFermentableSugarGrams,
       note: note,
     );
-    await _db.insertHistory(history);
-
     final isLastStep = currentIndex >= recipe.steps.length - 1;
     final hasNextStep = !isLastStep;
     final nextStep = hasNextStep ? recipe.steps[currentIndex + 1] : null;
@@ -134,14 +193,18 @@ class BatchProvider extends ChangeNotifier {
       );
     }
 
-    final double updatedInitialSugar = (currentIndex == 0 && sugarMeasured != null && sugarMeasured > 0)
-        ? sugarMeasured
-        : batch.initialSugar;
+    final double updatedInitialSugar =
+        (currentIndex == 0 && sugarMeasured != null && sugarMeasured > 0)
+            ? sugarMeasured
+            : batch.initialSugar;
 
-    final updatedBatch = batch.copyWith(
+        final updatedBatch = batch.copyWith(
       status: isLastStep ? BatchStatus.completed : BatchStatus.inProgress,
+      currentRecipeId: recipe.id,
       currentStepIndex: isLastStep ? null : currentIndex + 1,
+      clearCurrentStepIndex: isLastStep,
       nextStepDate: isLastStep ? null : nextDate,
+      clearNextStepDate: isLastStep,
       initialSugar: updatedInitialSugar,
       containerType: containerType ?? batch.containerType,
       containerCount: containerCount ?? batch.containerCount,
@@ -150,13 +213,17 @@ class BatchProvider extends ChangeNotifier {
       finalSugar: isLastStep
           ? (sugarMeasured ?? batch.finalSugar ?? updatedInitialSugar)
           : batch.finalSugar,
-      finalAlcohol: alcoholMeasured ?? batch.finalAlcohol ?? 0.0,
+      // Не обнуляем крепость на промежуточных шагах: 0.0 появится
+      // в карточке как ложное значение, если замер не проводился.
+      finalAlcohol: alcoholMeasured ?? batch.finalAlcohol,
       primingSugarGrams: primingSugarGrams ?? batch.primingSugarGrams,
-      nonFermentableSugarGrams: nonFermentableSugarGrams ?? batch.nonFermentableSugarGrams,
-      finalSugarWithPriming: finalSugarWithPriming ?? batch.finalSugarWithPriming,
+      nonFermentableSugarGrams:
+          nonFermentableSugarGrams ?? batch.nonFermentableSugarGrams,
+      finalSugarWithPriming:
+          finalSugarWithPriming ?? batch.finalSugarWithPriming,
     );
 
-    await _db.updateBatch(updatedBatch);
+    await _db.saveBatchStepResult(batch: updatedBatch, history: history);
 
     if (!isLastStep && nextStep != null && nextDate != null) {
       await _scheduleReminders(updatedBatch, nextStep, nextDate);
@@ -165,7 +232,8 @@ class BatchProvider extends ChangeNotifier {
     await loadBatches();
   }
 
-  Future<void> _scheduleReminders(Batch batch, RecipeStep nextStep, DateTime nextDate) async {
+  Future<void> _scheduleReminders(
+      Batch batch, RecipeStep nextStep, DateTime nextDate) async {
     final notificationId = batch.id.hashCode & 0x7FFFFFFF;
 
     await _notifications.scheduleStepNotification(

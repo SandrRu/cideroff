@@ -10,14 +10,15 @@ class UploadSvgTemplateDialog extends StatefulWidget {
   const UploadSvgTemplateDialog({super.key});
 
   @override
-  State<UploadSvgTemplateDialog> createState() => _UploadSvgTemplateDialogState();
+  State<UploadSvgTemplateDialog> createState() =>
+      _UploadSvgTemplateDialogState();
 }
 
 class _UploadSvgTemplateDialogState extends State<UploadSvgTemplateDialog> {
   final _nameController = TextEditingController();
   final _widthController = TextEditingController(text: '58.0');
   final _heightController = TextEditingController(text: '40.0');
-  
+
   String? _svgString;
   String? _fileName;
 
@@ -72,12 +73,14 @@ class _UploadSvgTemplateDialogState extends State<UploadSvgTemplateDialog> {
             ),
             if (_svgString != null) ...[
               const SizedBox(height: 8),
-              const Text('✅ Файл успешно загружен', style: TextStyle(color: Colors.green, fontSize: 12)),
+              const Text('✅ Файл успешно загружен',
+                  style: TextStyle(color: Colors.green, fontSize: 12)),
             ],
             const SizedBox(height: 12),
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Название шаблона', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                  labelText: 'Название шаблона', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             Row(
@@ -85,16 +88,20 @@ class _UploadSvgTemplateDialogState extends State<UploadSvgTemplateDialog> {
                 Expanded(
                   child: TextField(
                     controller: _widthController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Ширина (мм)', border: OutlineInputBorder()),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: 'Ширина (мм)', border: OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _heightController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Высота (мм)', border: OutlineInputBorder()),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: 'Высота (мм)', border: OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -104,11 +111,13 @@ class _UploadSvgTemplateDialogState extends State<UploadSvgTemplateDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(null), // Явно возвращаем null вместо bool
+          onPressed: () => Navigator.of(context)
+              .pop(null), // Явно возвращаем null вместо bool
           child: const Text('Отмена'),
         ),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber, foregroundColor: Colors.black),
           onPressed: _svgString == null ? null : _saveTemplate,
           child: const Text('Сохранить'),
         ),
@@ -118,7 +127,9 @@ class _UploadSvgTemplateDialogState extends State<UploadSvgTemplateDialog> {
 
   void _saveTemplate() async {
     final template = LabelTemplate(
-      name: _nameController.text.trim().isEmpty ? 'Мой SVG Макет' : _nameController.text.trim(),
+      name: _nameController.text.trim().isEmpty
+          ? 'Мой SVG Макет'
+          : _nameController.text.trim(),
       widthMm: double.tryParse(_widthController.text) ?? 58.0,
       heightMm: double.tryParse(_heightController.text) ?? 40.0,
       svgContent: _svgString,

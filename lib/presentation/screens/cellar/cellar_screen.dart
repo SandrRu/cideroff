@@ -14,7 +14,8 @@ class CellarScreen extends StatefulWidget {
   State<CellarScreen> createState() => _CellarScreenState();
 }
 
-class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderStateMixin {
+class _CellarScreenState extends State<CellarScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<DrinkType> _drinkTypes = [];
   bool _isLoadingDrinkTypes = true;
@@ -59,15 +60,19 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
     final batchProvider = context.watch<BatchProvider>();
 
     final cellarBatches = batchProvider.batches.where((b) {
-      return b.status == BatchStatus.inProgress || b.status == BatchStatus.completed;
+      return b.status == BatchStatus.inProgress ||
+          b.status == BatchStatus.completed;
     }).toList();
 
-    final ciderBatches = cellarBatches.where((b) => b.type == BatchType.cider).toList();
-    final calvadosBatches = cellarBatches.where((b) => b.type == BatchType.calvados).toList();
+    final ciderBatches =
+        cellarBatches.where((b) => b.type == BatchType.cider).toList();
+    final calvadosBatches =
+        cellarBatches.where((b) => b.type == BatchType.calvados).toList();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Погребок', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Погребок',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -93,13 +98,16 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
     final List<_CellarItem> items = [];
 
     for (final b in batches) {
-      final baseSugarGramsPer100ml = b.finalSugarWithPriming ?? b.finalSugar ?? b.initialSugar;
+      final baseSugarGramsPer100ml =
+          b.finalSugarWithPriming ?? b.finalSugar ?? b.initialSugar;
       final baseSugarGramsPerLiter = baseSugarGramsPer100ml * 10.0;
 
       if (b.containers.isNotEmpty) {
         for (final c in b.containers) {
-          final totalSugarGramsPerLiter = baseSugarGramsPerLiter + c.sweetenerAmountGramsPerLiter;
-          final sweetnessCategory = _getSweetnessCategoryName(totalSugarGramsPerLiter);
+          final totalSugarGramsPerLiter =
+              baseSugarGramsPerLiter + c.sweetenerAmountGramsPerLiter;
+          final sweetnessCategory =
+              _getSweetnessCategoryName(totalSugarGramsPerLiter);
 
           items.add(_CellarItem(
             batch: b,
@@ -109,7 +117,8 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
           ));
         }
       } else if (b.containerCount != null && b.containerCount! > 0) {
-        final sweetnessCategory = _getSweetnessCategoryName(baseSugarGramsPerLiter);
+        final sweetnessCategory =
+            _getSweetnessCategoryName(baseSugarGramsPerLiter);
         items.add(_CellarItem(
           batch: b,
           sweetnessCategory: sweetnessCategory,
@@ -120,7 +129,8 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
 
     if (items.isEmpty) {
       return const Center(
-        child: Text('В погребке пока нет разлитого сидра', style: TextStyle(color: Colors.grey)),
+        child: Text('В погребке пока нет разлитого сидра',
+            style: TextStyle(color: Colors.grey)),
       );
     }
 
@@ -139,7 +149,8 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
 
           final categoryVolume = categoryItems.fold<double>(
             0.0,
-            (sum, i) => sum + (i.container?.totalVolumeLiters ?? i.batch.juiceVolume),
+            (sum, i) =>
+                sum + (i.container?.totalVolumeLiters ?? i.batch.juiceVolume),
           );
 
           return Card(
@@ -149,9 +160,11 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
               leading: const Icon(Icons.wine_bar, color: Colors.amber),
               title: Text(
                 categoryName,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              subtitle: Text('Позиций: ${categoryItems.length} | Всего: ${categoryVolume.toStringAsFixed(1)} л'),
+              subtitle: Text(
+                  'Позиций: ${categoryItems.length} | Всего: ${categoryVolume.toStringAsFixed(1)} л'),
               children: categoryItems.map((item) {
                 final c = item.container;
                 return ListTile(
@@ -160,12 +173,15 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => BatchDetailScreen(batchId: item.batch.id),
+                        builder: (_) =>
+                            BatchDetailScreen(batchId: item.batch.id),
                       ),
                     );
                   },
                   title: Text(
-                    c != null ? '${item.batch.name} — ${c.title}' : item.batch.name,
+                    c != null
+                        ? '${item.batch.name} — ${c.title}'
+                        : item.batch.name,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text(
@@ -180,7 +196,9 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
                         ? Colors.green.shade100
                         : Colors.amber.shade100,
                     label: Text(
-                      item.batch.status == BatchStatus.completed ? 'Готов' : 'Созревание',
+                      item.batch.status == BatchStatus.completed
+                          ? 'Готов'
+                          : 'Созревание',
                       style: TextStyle(
                         fontSize: 11,
                         color: item.batch.status == BatchStatus.completed
@@ -212,7 +230,8 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
     );
 
     // Подбор контрастных цветов под тему
-    final backgroundColor = isDark ? const Color(0xFF332A15) : Colors.amber.shade100;
+    final backgroundColor =
+        isDark ? const Color(0xFF332A15) : Colors.amber.shade100;
     final borderColor = isDark ? Colors.amber.shade700 : Colors.amber.shade300;
     final labelColor = isDark ? Colors.amber.shade200 : Colors.black54;
     final valueColor = isDark ? Colors.amber.shade50 : Colors.black87;
@@ -230,22 +249,30 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
         children: [
           Column(
             children: [
-              Text('Всего бутылок', style: TextStyle(fontSize: 12, color: labelColor)),
+              Text('Всего бутылок',
+                  style: TextStyle(fontSize: 12, color: labelColor)),
               const SizedBox(height: 4),
               Text(
                 '$totalBottles шт.',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: valueColor),
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: valueColor),
               ),
             ],
           ),
           Container(height: 32, width: 1, color: borderColor),
           Column(
             children: [
-              Text('Общий объем', style: TextStyle(fontSize: 12, color: labelColor)),
+              Text('Общий объем',
+                  style: TextStyle(fontSize: 12, color: labelColor)),
               const SizedBox(height: 4),
               Text(
                 '${totalLiters.toStringAsFixed(1)} л',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: valueColor),
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: valueColor),
               ),
             ],
           ),
@@ -260,7 +287,8 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
 
     if (batches.isEmpty) {
       return const Center(
-        child: Text('В погребке пока нет Кальвадоса', style: TextStyle(color: Colors.grey)),
+        child: Text('В погребке пока нет Кальвадоса',
+            style: TextStyle(color: Colors.grey)),
       );
     }
 
@@ -269,8 +297,10 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
       (sum, b) => sum + (b.distillateVolume ?? b.juiceVolume),
     );
 
-    final backgroundColor = isDark ? const Color(0xFF3D2512) : Colors.orange.shade100;
-    final borderColor = isDark ? Colors.orange.shade700 : Colors.orange.shade300;
+    final backgroundColor =
+        isDark ? const Color(0xFF3D2512) : Colors.orange.shade100;
+    final borderColor =
+        isDark ? Colors.orange.shade700 : Colors.orange.shade300;
     final labelColor = isDark ? Colors.orange.shade200 : Colors.black54;
     final valueColor = isDark ? Colors.orange.shade50 : Colors.black87;
 
@@ -290,22 +320,30 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
             children: [
               Column(
                 children: [
-                  Text('Партий', style: TextStyle(fontSize: 12, color: labelColor)),
+                  Text('Партий',
+                      style: TextStyle(fontSize: 12, color: labelColor)),
                   const SizedBox(height: 4),
                   Text(
                     '${batches.length}',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: valueColor),
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: valueColor),
                   ),
                 ],
               ),
               Container(height: 32, width: 1, color: borderColor),
               Column(
                 children: [
-                  Text('Общий объем', style: TextStyle(fontSize: 12, color: labelColor)),
+                  Text('Общий объем',
+                      style: TextStyle(fontSize: 12, color: labelColor)),
                   const SizedBox(height: 4),
                   Text(
                     '${totalVolume.toStringAsFixed(1)} л',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: valueColor),
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: valueColor),
                   ),
                 ],
               ),
@@ -327,7 +365,8 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
                   backgroundColor: Color(0xFFD48115),
                   child: Text('🥃', style: TextStyle(fontSize: 14)),
                 ),
-                title: Text(b.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                title: Text(b.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -340,8 +379,12 @@ class _CellarScreenState extends State<CellarScreen> with SingleTickerProviderSt
                   ],
                 ),
                 trailing: Icon(
-                  b.status == BatchStatus.completed ? Icons.check_circle : Icons.hourglass_bottom,
-                  color: b.status == BatchStatus.completed ? Colors.green : Colors.orange,
+                  b.status == BatchStatus.completed
+                      ? Icons.check_circle
+                      : Icons.hourglass_bottom,
+                  color: b.status == BatchStatus.completed
+                      ? Colors.green
+                      : Colors.orange,
                 ),
               ),
             )),

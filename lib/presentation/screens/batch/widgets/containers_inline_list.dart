@@ -24,7 +24,8 @@ class ContainersInlineList extends StatelessWidget {
     );
 
     if (newContainer != null) {
-      final updatedList = List<BatchContainer>.from(containers)..add(newContainer);
+      final updatedList = List<BatchContainer>.from(containers)
+        ..add(newContainer);
       onChanged(updatedList);
     }
   }
@@ -52,7 +53,8 @@ class ContainersInlineList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalBottled = BatchVolumeCalculator.calculateTotalBottledVolume(containers);
+    final totalBottled =
+        BatchVolumeCalculator.calculateTotalBottledVolume(containers);
     final lossVolume = BatchVolumeCalculator.calculateLossVolume(
       totalJuiceVolume: totalJuiceVolume,
       containers: containers,
@@ -99,7 +101,8 @@ class ContainersInlineList extends StatelessWidget {
           Column(
             children: List.generate(containers.length, (index) {
               final c = containers[index];
-              final hasSweetener = c.sweetenerType != null && c.sweetenerAmountGramsPerLiter > 0;
+              final hasSweetener =
+                  c.sweetenerType != null && c.sweetenerAmountGramsPerLiter > 0;
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -109,7 +112,8 @@ class ContainersInlineList extends StatelessWidget {
                   dense: true,
                   title: Text(
                     c.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   subtitle: Text(
                     '${c.containerType} ${c.containerVolumeLiters}л × ${c.count} шт = ${c.totalVolumeLiters.toStringAsFixed(1)}л'
@@ -120,11 +124,13 @@ class ContainersInlineList extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.blue),
+                        icon: const Icon(Icons.edit_outlined,
+                            size: 18, color: Colors.blue),
                         onPressed: () => _editContainer(context, index),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        icon: const Icon(Icons.delete_outline,
+                            size: 18, color: Colors.red),
                         onPressed: () => _removeContainer(index),
                       ),
                     ],
@@ -141,23 +147,32 @@ class ContainersInlineList extends StatelessWidget {
           decoration: BoxDecoration(
             color: isExceeded ? Colors.red.shade50 : Colors.amber.shade100,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isExceeded ? Colors.red : Colors.amber.shade300),
+            border: Border.all(
+                color: isExceeded ? Colors.red : Colors.amber.shade300),
           ),
           child: Column(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Исходный объем сусла:', style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
-                  Text('${totalJuiceVolume.toStringAsFixed(1)} л', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  Text('Исходный объем сусла:',
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.grey.shade800)),
+                  Text('${totalJuiceVolume.toStringAsFixed(1)} л',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12)),
                 ],
               ),
               const SizedBox(height: 2),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Разлито по подпартиям:', style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
-                  Text('${totalBottled.toStringAsFixed(1)} л', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  Text('Разлито по подпартиям:',
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.grey.shade800)),
+                  Text('${totalBottled.toStringAsFixed(1)} л',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12)),
                 ],
               ),
               const Divider(height: 12),

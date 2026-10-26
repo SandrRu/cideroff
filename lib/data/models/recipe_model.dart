@@ -26,7 +26,10 @@ class RecipeStep {
 
   /// Получение инструкции на указанном языке
   String getInstruction(String langCode) {
-    return instruction[langCode] ?? instruction['ru'] ?? instruction['en'] ?? '';
+    return instruction[langCode] ??
+        instruction['ru'] ??
+        instruction['en'] ??
+        '';
   }
 
   Map<String, dynamic> toJson() => {
@@ -44,8 +47,10 @@ class RecipeStep {
         title: Map<String, String>.from(json['title'] as Map),
         instruction: Map<String, String>.from(json['instruction'] as Map),
         durationDays: json['durationDays'] as int,
-        requiresSugarMeasurement: json['requiresSugarMeasurement'] as bool? ?? false,
-        requiresAlcoholMeasurement: json['requiresAlcoholMeasurement'] as bool? ?? false,
+        requiresSugarMeasurement:
+            json['requiresSugarMeasurement'] as bool? ?? false,
+        requiresAlcoholMeasurement:
+            json['requiresAlcoholMeasurement'] as bool? ?? false,
         isBottlingStep: json['isBottlingStep'] as bool? ?? false,
       );
 }
@@ -72,7 +77,10 @@ class Recipe {
   }
 
   String getDescription(String langCode) {
-    return description[langCode] ?? description['ru'] ?? description['en'] ?? '';
+    return description[langCode] ??
+        description['ru'] ??
+        description['en'] ??
+        '';
   }
 
   Recipe copyWith({

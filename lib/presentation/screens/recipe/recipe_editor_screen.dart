@@ -35,7 +35,9 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
             RecipeStep(
               stepIndex: 0,
               title: {'ru': 'Первичное брожение'},
-              instruction: {'ru': 'Установите гидрозатвор и поставьте в темное место.'},
+              instruction: {
+                'ru': 'Установите гидрозатвор и поставьте в темное место.'
+              },
               durationDays: 14,
               requiresSugarMeasurement: true,
             ),
@@ -67,8 +69,10 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
     if (_isReadOnly) return;
 
     final titleController = TextEditingController(text: step.getTitle('ru'));
-    final instructionController = TextEditingController(text: step.getInstruction('ru'));
-    final durationController = TextEditingController(text: step.durationDays.toString());
+    final instructionController =
+        TextEditingController(text: step.getInstruction('ru'));
+    final durationController =
+        TextEditingController(text: step.durationDays.toString());
 
     bool requiresSugar = step.requiresSugarMeasurement;
     bool requiresAlcohol = step.requiresAlcoholMeasurement;
@@ -134,28 +138,34 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
                           SwitchListTile(
                             dense: true,
                             title: const Text('Замер сахара'),
-                            subtitle: const Text('Включить ввод граммов сахара на 100 мл'),
+                            subtitle: const Text(
+                                'Включить ввод граммов сахара на 100 мл'),
                             value: requiresSugar,
-                            activeColor: Colors.amber,
-                            onChanged: (v) => setDialogState(() => requiresSugar = v),
+                            activeThumbColor: Colors.amber,
+                            onChanged: (v) =>
+                                setDialogState(() => requiresSugar = v),
                           ),
                           const Divider(height: 1),
                           SwitchListTile(
                             dense: true,
                             title: const Text('Замер крепости'),
-                            subtitle: const Text('Включить ввод спирта (% об.)'),
+                            subtitle:
+                                const Text('Включить ввод спирта (% об.)'),
                             value: requiresAlcohol,
-                            activeColor: Colors.amber,
-                            onChanged: (v) => setDialogState(() => requiresAlcohol = v),
+                            activeThumbColor: Colors.amber,
+                            onChanged: (v) =>
+                                setDialogState(() => requiresAlcohol = v),
                           ),
                           const Divider(height: 1),
                           SwitchListTile(
                             dense: true,
                             title: const Text('Этап розлива (Финал)'),
-                            subtitle: const Text('Активирует форму фасовки по подпартиям'),
+                            subtitle: const Text(
+                                'Активирует форму фасовки по подпартиям'),
                             value: isBottling,
-                            activeColor: Colors.green,
-                            onChanged: (v) => setDialogState(() => isBottling = v),
+                            activeThumbColor: Colors.green,
+                            onChanged: (v) =>
+                                setDialogState(() => isBottling = v),
                           ),
                         ],
                       ),
@@ -266,7 +276,6 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
                   ],
                 ),
               ),
-
             TextFormField(
               controller: _titleRuController,
               enabled: !_isReadOnly,
@@ -307,7 +316,6 @@ class _RecipeEditorScreenState extends State<RecipeEditorScreen> {
               ],
             ),
             const SizedBox(height: 8),
-
             if (_isReadOnly)
               ListView.builder(
                 shrinkWrap: true,

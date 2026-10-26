@@ -23,15 +23,20 @@ class DashboardScreen extends StatelessWidget {
       (sum, b) => sum + b.juiceVolume,
     );
 
-    final ciderCount = batchProvider.batches.where((b) => b.type.name == 'cider').length;
-    final calvadosCount = batchProvider.batches.where((b) => b.type.name == 'calvados').length;
+    final ciderCount =
+        batchProvider.batches.where((b) => b.type.name == 'cider').length;
+    final calvadosCount =
+        batchProvider.batches.where((b) => b.type.name == 'calvados').length;
 
     // Поиск ближайшей партии по дате следующего шага
-    final activeWithDates = inProgressBatches.where((b) => b.nextStepDate != null).toList();
+    final activeWithDates =
+        inProgressBatches.where((b) => b.nextStepDate != null).toList();
     if (activeWithDates.isNotEmpty) {
-      activeWithDates.sort((a, b) => a.nextStepDate!.compareTo(b.nextStepDate!));
+      activeWithDates
+          .sort((a, b) => a.nextStepDate!.compareTo(b.nextStepDate!));
     }
-    final nearestBatch = activeWithDates.isNotEmpty ? activeWithDates.first : null;
+    final nearestBatch =
+        activeWithDates.isNotEmpty ? activeWithDates.first : null;
 
     // Формирование динамического списка активных виджетов
     final List<Widget> activeWidgets = [];
@@ -50,22 +55,26 @@ class DashboardScreen extends StatelessWidget {
       );
     }
     if (settings.showTotalInProgressVolume) {
-      activeWidgets.add(TotalInProgressVolumeCard(volumeLiters: totalInProgressVolume));
+      activeWidgets
+          .add(TotalInProgressVolumeCard(volumeLiters: totalInProgressVolume));
     }
     if (settings.showNearestStep) {
       activeWidgets.add(NearestStepCard(nearestBatch: nearestBatch));
     }
     if (settings.showTypeDistribution) {
-      activeWidgets.add(TypeDistributionCard(ciderCount: ciderCount, calvadosCount: calvadosCount));
+      activeWidgets.add(TypeDistributionCard(
+          ciderCount: ciderCount, calvadosCount: calvadosCount));
     }
     if (settings.showActiveFermentationCount) {
-      activeWidgets.add(ActiveFermentationsCard(count: inProgressBatches.length));
+      activeWidgets
+          .add(ActiveFermentationsCard(count: inProgressBatches.length));
     }
     if (settings.showActiveYeasts) {
       activeWidgets.add(ActiveYeastsCard(batches: batchProvider.batches));
     }
     if (settings.showFinishedPackaging) {
-      activeWidgets.add(PackagingVolumeDistributionCard(batches: batchProvider.batches));
+      activeWidgets
+          .add(PackagingVolumeDistributionCard(batches: batchProvider.batches));
     }
     if (settings.showQuickCalculatorCard) {
       activeWidgets.add(const QuickCalculatorCard());
@@ -73,7 +82,8 @@ class DashboardScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Дашборд', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Дашборд',
+            style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: batchProvider.isLoading
           ? const Center(child: CircularProgressIndicator())

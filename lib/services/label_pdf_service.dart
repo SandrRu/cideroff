@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../core/utils/bottling_date_resolver.dart';
 import '../data/models/batch_model.dart';
 import '../data/models/label_template_model.dart';
 import '../data/models/batch_container_model.dart';
@@ -15,14 +16,18 @@ class LabelPdfService {
     required Batch batch,
     BatchContainer? container,
     required LabelTemplate template,
+    DateTime? bottlingDate,
     String? yeastName,
   }) async {
     // Если шаблон является кастомным SVG, вызываем генератор для SVG
-    if (template.isCustomSvg && template.svgContent != null && template.svgContent!.isNotEmpty) {
+    if (template.isCustomSvg &&
+        template.svgContent != null &&
+        template.svgContent!.isNotEmpty) {
       return generateSvgLabelPdf(
         batch: batch,
         container: container,
         template: template,
+        bottlingDate: bottlingDate,
         yeastName: yeastName,
       );
     }
@@ -43,16 +48,17 @@ class LabelPdfService {
       marginAll: 2 * PdfPageFormat.mm,
     );
 
-    // Форматирование даты DD.MM.YYYY
-    final day = batch.pressDate.day.toString().padLeft(2, '0');
-    final month = batch.pressDate.month.toString().padLeft(2, '0');
-    final year = batch.pressDate.year;
+    // Форматирование даты DD.MM.YYYY (дата розлива, а не текущая и не дата отжима)
+    final effectiveBottlingDate =
+        bottlingDate ?? await BottlingDateResolver.resolve(batch);
+    final day = effectiveBottlingDate.day.toString().padLeft(2, '0');
+    final month = effectiveBottlingDate.month.toString().padLeft(2, '0');
+    final year = effectiveBottlingDate.year;
     final formattedDate = '$day.$month.$year';
 
     // Формирование заглавия
-    final displayTitle = container != null
-        ? '${batch.name} • ${container.title}'
-        : batch.name;
+    final displayTitle =
+        container != null ? '${batch.name} • ${container.title}' : batch.name;
 
     // Расчётная сладость (с учетом подпартии, декстрозы и несбраживаемых сахаров)
     final baseSugar = batch.finalSugarWithPriming ?? batch.finalSugar ?? 0.0;
@@ -105,7 +111,7 @@ class LabelPdfService {
                     style: const pw.TextStyle(fontSize: 7),
                   ),
                 pw.Text(
-                  'Дата: $formattedDate',
+                  'Розлив: $formattedDate',
                   style: const pw.TextStyle(fontSize: 7),
                 ),
 
@@ -138,11 +144,12 @@ class LabelPdfService {
     return pdf.save();
   }
 
-/// Генерация PDF из SVG с масштабированием на весь размер этикетки
+  /// Генерация PDF из SVG с масштабированием на весь размер этикетки
   static Future<Uint8List> generateSvgLabelPdf({
     required Batch batch,
     BatchContainer? container,
     required LabelTemplate template,
+    DateTime? bottlingDate,
     String? yeastName,
   }) async {
     final pdf = pw.Document();
@@ -158,10 +165,16 @@ class LabelPdfService {
         );
 
     // 1. Подстановка данных
+    // Дату розлива берём из истории партии: текущая дата здесь неверна,
+    // этикетку могут печатать позже самого розлива.
+    final effectiveBottlingDate =
+        bottlingDate ?? await BottlingDateResolver.resolve(batch);
+
     final processedSvg = SvgLabelProcessor.injectData(
       rawSvg: template.svgContent ?? '',
       batch: batch,
       container: selectedContainer,
+      bottlingDate: effectiveBottlingDate,
       yeastName: yeastName,
     );
 
@@ -183,8 +196,10 @@ class LabelPdfService {
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final ui.Canvas canvas = ui.Canvas(recorder);
 
-    final double rawWidth = pictureInfo.size.width > 0 ? pictureInfo.size.width : widthPt;
-    final double rawHeight = pictureInfo.size.height > 0 ? pictureInfo.size.height : heightPt;
+    final double rawWidth =
+        pictureInfo.size.width > 0 ? pictureInfo.size.width : widthPt;
+    final double rawHeight =
+        pictureInfo.size.height > 0 ? pictureInfo.size.height : heightPt;
 
     final double scaleX = pixelWidth / rawWidth;
     final double scaleY = pixelHeight / rawHeight;
@@ -198,7 +213,8 @@ class LabelPdfService {
       pixelHeight.round(),
     );
 
-    final ByteData? bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    final ByteData? bytes =
+        await image.toByteData(format: ui.ImageByteFormat.png);
     if (bytes == null) {
       throw Exception('Ошибка при сжатии и конвертации SVG этикетки');
     }
@@ -232,12 +248,14 @@ class LabelPdfService {
     required Batch batch,
     BatchContainer? container,
     required LabelTemplate template,
+    DateTime? bottlingDate,
     String? yeastName,
   }) async {
     final pdfData = await generateLabelPdf(
       batch: batch,
       container: container,
       template: template,
+      bottlingDate: bottlingDate,
       yeastName: yeastName,
     );
 
@@ -250,7 +268,8 @@ class LabelPdfService {
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdfData,
       name: 'Этикетка_$sanitizeName.pdf',
-      format: labelFormat, // Фиксирует размер печати по размеру этикетки, а не A4
+      format:
+          labelFormat, // Фиксирует размер печати по размеру этикетки, а не A4
     );
   }
 }

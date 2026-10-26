@@ -30,17 +30,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isGoogleDriveDownloading = false;
 
   Future<void> _uploadToGoogleDrive() async {
+    final service = GoogleDriveSyncService();
+    final messenger = ScaffoldMessenger.of(context);
+
     setState(() => _isGoogleDriveUploading = true);
     try {
-      final success = await GoogleDriveSyncService().uploadBackup();
-      if (!mounted) return;
+      final result = await service.uploadBackupResult();
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
+          duration: Duration(seconds: result.isSuccess ? 3 : 7),
           content: Text(
-            success
+            result.isSuccess
                 ? 'Резервная копия выгружена в Google Drive'
-                : 'Ошибка выгрузки в Google Drive',
+                : (result.message ?? 'Ошибка выгрузки в Google Drive'),
           ),
         ),
       );
@@ -50,23 +53,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _downloadFromGoogleDrive() async {
+    final service = GoogleDriveSyncService();
+    final messenger = ScaffoldMessenger.of(context);
+    final batchProvider = context.read<BatchProvider>();
+    final recipeProvider = context.read<RecipeProvider>();
+    final yeastProvider = context.read<YeastProvider>();
+
     setState(() => _isGoogleDriveDownloading = true);
     try {
-      final success = await GoogleDriveSyncService().downloadAndApplyBackup();
-      if (!mounted) return;
+      final result = await service.downloadAndApplyBackupResult();
 
-      if (success) {
-        await context.read<BatchProvider>().loadBatches();
-        await context.read<RecipeProvider>().loadRecipes();
-        await context.read<YeastProvider>().loadYeasts();
+      if (result.isSuccess) {
+        await batchProvider.loadBatches();
+        await recipeProvider.loadRecipes();
+        await yeastProvider.loadYeasts();
 
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Данные успешно восстановлены из Google Drive')),
+        messenger.showSnackBar(
+          const SnackBar(
+              content: Text('Данные успешно восстановлены из Google Drive')),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось загрузить резервную копию из Google Drive')),
+        messenger.showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 7),
+            content: Text(
+              result.message ??
+                  'Не удалось загрузить резервную копию из Google Drive',
+            ),
+          ),
         );
       }
     } finally {
@@ -78,7 +92,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final settingsProvider = context.watch<AppSettingsProvider>();
     final currentLocaleCode = settingsProvider.currentLocale.languageCode;
-    final currentLanguageName = currentLocaleCode == 'en' ? 'English' : 'Русский';
+    final currentLanguageName =
+        currentLocaleCode == 'en' ? 'English' : 'Русский';
 
     return Scaffold(
       appBar: AppBar(
@@ -99,7 +114,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.dashboard_outlined, color: Colors.amber),
             title: const Text('Настройки Дашборда'),
-            subtitle: const Text('Выбор колонок и активных карточек статистики'),
+            subtitle:
+                const Text('Выбор колонок и активных карточек статистики'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.push(
@@ -166,7 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
           ),
-          
+
           const Divider(),
 
           // Раздел: Облачная синхронизация Google Drive
@@ -181,17 +197,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.black),
                           )
                         : const Icon(Icons.add_to_drive_outlined),
-                    label: Text(_isGoogleDriveUploading ? 'Сохранение...' : 'Выгрузить в Drive'),
+                    label: Text(_isGoogleDriveUploading
+                        ? 'Сохранение...'
+                        : 'Выгрузить в Drive'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.amber,
                       foregroundColor: Colors.black,
                     ),
-                    onPressed: (_isGoogleDriveUploading || _isGoogleDriveDownloading)
-                        ? null
-                        : _uploadToGoogleDrive,
+                    onPressed:
+                        (_isGoogleDriveUploading || _isGoogleDriveDownloading)
+                            ? null
+                            : _uploadToGoogleDrive,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -204,10 +224,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.cloud_download_outlined),
-                    label: Text(_isGoogleDriveDownloading ? 'Загрузка...' : 'Скачать из Drive'),
-                    onPressed: (_isGoogleDriveUploading || _isGoogleDriveDownloading)
-                        ? null
-                        : _downloadFromGoogleDrive,
+                    label: Text(_isGoogleDriveDownloading
+                        ? 'Загрузка...'
+                        : 'Скачать из Drive'),
+                    onPressed:
+                        (_isGoogleDriveUploading || _isGoogleDriveDownloading)
+                            ? null
+                            : _downloadFromGoogleDrive,
                   ),
                 ),
               ],
@@ -219,7 +242,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Раздел: Напоминания
           _buildSectionHeader('Напоминания'),
           SwitchListTile(
-            secondary: const Icon(Icons.notifications_active_outlined, color: Colors.amber),
+            secondary: const Icon(Icons.notifications_active_outlined,
+                color: Colors.amber),
             title: const Text('Push-уведомления'),
             subtitle: const Text('Напоминать о наступлении следующих этапов'),
             value: _notificationsEnabled,
@@ -238,8 +262,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.refresh, color: Colors.blue),
             title: const Text('Перезагрузить все данные'),
-            subtitle: const Text('Обновить список партий, рецептов и дрожжей из базы'),
+            subtitle: const Text(
+                'Обновить список партий, рецептов и дрожжей из базы'),
             onTap: () async {
+              final messenger = ScaffoldMessenger.of(context);
               final batchProvider = context.read<BatchProvider>();
               final recipeProvider = context.read<RecipeProvider>();
               final yeastProvider = context.read<YeastProvider>();
@@ -248,9 +274,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               await recipeProvider.loadRecipes();
               await yeastProvider.loadYeasts();
 
-              if (!mounted) return;
-
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(content: Text('Данные успешно обновлены')),
               );
             },
@@ -258,17 +282,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.download_outlined, color: Colors.green),
             title: const Text('Экспорт данных (Бэкап)'),
-            subtitle: const Text('Сохранить все партии, историю и рецепты в файл'),
+            subtitle:
+                const Text('Сохранить все партии, историю и рецепты в файл'),
             onTap: () async {
+              final messenger = ScaffoldMessenger.of(context);
               try {
                 await ExportImportService().exportFullBackup();
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(content: Text('Экспорт бэкапа завершён')),
                 );
               } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(content: Text('Ошибка экспорта: $e')),
                 );
               }
@@ -277,30 +301,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.upload_outlined, color: Colors.orange),
             title: const Text('Импорт данных (Восстановление)'),
-            subtitle: const Text('Восстановить резервную копию из файла .ciderbak'),
+            subtitle:
+                const Text('Восстановить резервную копию из файла .ciderbak'),
             onTap: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final batchProvider = context.read<BatchProvider>();
+              final recipeProvider = context.read<RecipeProvider>();
+              final yeastProvider = context.read<YeastProvider>();
               try {
                 final success = await ExportImportService().importFullBackup();
-                if (success && mounted) {
-                  await context.read<BatchProvider>().loadBatches();
-                  await context.read<RecipeProvider>().loadRecipes();
-                  await context.read<YeastProvider>().loadYeasts();
+                if (success) {
+                  await batchProvider.loadBatches();
+                  await recipeProvider.loadRecipes();
+                  await yeastProvider.loadYeasts();
 
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Данные успешно восстановлены')),
+                  messenger.showSnackBar(
+                    const SnackBar(
+                        content: Text('Данные успешно восстановлены')),
                   );
                 }
               } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(content: Text('Ошибка импорта: $e')),
                 );
               }
             },
           ),
           ListTile(
-            leading: const Icon(Icons.delete_forever_outlined, color: Colors.red),
+            leading:
+                const Icon(Icons.delete_forever_outlined, color: Colors.red),
             title: const Text('Очистить базу данных'),
             subtitle: const Text('Удалить все созданные партии и историю'),
             onTap: () => _showClearDataDialog(context),
@@ -313,7 +342,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const ListTile(
             leading: Icon(Icons.local_drink_outlined, color: Colors.amber),
             title: Text('CiderOff'),
-            subtitle: Text('Версия 1.1.0'),
+            subtitle: Text('Версия 1.2.0'),
           ),
           ListTile(
             leading: const Icon(Icons.info_outline, color: Colors.grey),
@@ -323,11 +352,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               showAboutDialog(
                 context: context,
                 applicationName: 'CiderOff',
-                applicationVersion: '1.1.0',
-                applicationIcon: const Icon(Icons.local_drink, size: 40, color: Colors.amber),
+                applicationVersion: '1.2.0',
+                applicationIcon: const Icon(Icons.local_drink,
+                    size: 40, color: Colors.amber),
                 children: [
                   const SizedBox(height: 12),
-                  const Text('Приложение для контроля процесса брожения, замеров сахара, алкоголя и печати этикеток.'),
+                  const Text(
+                      'Приложение для контроля процесса брожения, замеров сахара, алкоголя и печати этикеток.'),
                 ],
               );
             },
@@ -360,7 +391,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             SimpleDialogOption(
               onPressed: () {
-                context.read<AppSettingsProvider>().setLocale(const Locale('ru'));
+                context
+                    .read<AppSettingsProvider>()
+                    .setLocale(const Locale('ru'));
                 Navigator.pop(dialogContext);
               },
               child: const Padding(
@@ -370,7 +403,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             SimpleDialogOption(
               onPressed: () {
-                context.read<AppSettingsProvider>().setLocale(const Locale('en'));
+                context
+                    .read<AppSettingsProvider>()
+                    .setLocale(const Locale('en'));
                 Navigator.pop(dialogContext);
               },
               child: const Padding(
@@ -407,6 +442,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final batchProvider = context.read<BatchProvider>();
                 final recipeProvider = context.read<RecipeProvider>();
                 final yeastProvider = context.read<YeastProvider>();
+                final messenger = ScaffoldMessenger.of(context);
 
                 Navigator.pop(dialogContext);
 
@@ -415,9 +451,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 await recipeProvider.loadRecipes();
                 await yeastProvider.loadYeasts();
 
-                if (!mounted) return;
-
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(content: Text('База данных успешно очищена')),
                 );
               },

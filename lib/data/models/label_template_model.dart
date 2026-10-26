@@ -6,9 +6,10 @@ class LabelTemplate {
   final String name;
   final double widthMm;
   final double heightMm;
-  final String schemaJson; // Оставляем для обратной совместимости со старыми координатами
+  final String
+      schemaJson; // Оставляем для обратной совместимости со старыми координатами
   final String? svgContent; // Хранение исходного SVG кода
-  final bool isCustomSvg;   // Флаг: кастомный SVG или стандартный макет
+  final bool isCustomSvg; // Флаг: кастомный SVG или стандартный макет
 
   LabelTemplate({
     String? id,

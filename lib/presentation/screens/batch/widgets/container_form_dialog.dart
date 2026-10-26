@@ -79,19 +79,23 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      final updatedContainer = (widget.container ?? BatchContainer(
-        batchId: widget.batchId,
-        title: _titleController.text.trim(),
-        containerType: _selectedContainerType,
-        containerVolumeLiters: _parseDouble(_volumeController.text) ?? 0.75,
-        count: int.tryParse(_countController.text.trim()) ?? 0,
-      )).copyWith(
+      final updatedContainer = (widget.container ??
+              BatchContainer(
+                batchId: widget.batchId,
+                title: _titleController.text.trim(),
+                containerType: _selectedContainerType,
+                containerVolumeLiters:
+                    _parseDouble(_volumeController.text) ?? 0.75,
+                count: int.tryParse(_countController.text.trim()) ?? 0,
+              ))
+          .copyWith(
         title: _titleController.text.trim(),
         containerType: _selectedContainerType,
         containerVolumeLiters: _parseDouble(_volumeController.text) ?? 0.75,
         count: int.tryParse(_countController.text.trim()) ?? 0,
         sweetenerType: _selectedSweetenerType,
-        sweetenerAmountGramsPerLiter: _parseDouble(_sweetenerAmountController.text) ?? 0.0,
+        sweetenerAmountGramsPerLiter:
+            _parseDouble(_sweetenerAmountController.text) ?? 0.0,
       );
 
       Navigator.of(context).pop(updatedContainer);
@@ -106,7 +110,9 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
         // Гарантируем корректную передачу данных или null при закрытии жестом/назад
       },
       child: AlertDialog(
-        title: Text(widget.container == null ? 'Добавить тару / подпартию' : 'Редактировать тару'),
+        title: Text(widget.container == null
+            ? 'Добавить тару / подпартию'
+            : 'Редактировать тару'),
         content: SingleChildScrollView(
           child: Form(
             key: _formKey,
@@ -120,10 +126,10 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
                     hintText: 'Например: Сухой 0.75л или Ксилит 15г/л',
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Введите название' : null,
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Введите название' : null,
                 ),
                 const SizedBox(height: 12),
-
                 DropdownButtonFormField<String>(
                   value: _selectedContainerType,
                   decoration: const InputDecoration(
@@ -134,17 +140,18 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
                     return DropdownMenuItem(value: type, child: Text(type));
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setState(() => _selectedContainerType = val);
+                    if (val != null)
+                      setState(() => _selectedContainerType = val);
                   },
                 ),
                 const SizedBox(height: 12),
-
                 Row(
                   children: [
                     Expanded(
                       child: TextFormField(
                         controller: _volumeController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         decoration: const InputDecoration(
                           labelText: 'Объем 1 шт (л)',
                           hintText: '0.75',
@@ -177,7 +184,6 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
                   ],
                 ),
                 const SizedBox(height: 12),
-
                 Consumer<SweetenerProvider>(
                   builder: (context, sweetenerProvider, child) {
                     if (sweetenerProvider.isLoading) {
@@ -191,9 +197,10 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
                         .map((sw) => sw.name)
                         .toList();
 
-                    final String? validValue = sweetenerNames.contains(_selectedSweetenerType)
-                        ? _selectedSweetenerType
-                        : null;
+                    final String? validValue =
+                        sweetenerNames.contains(_selectedSweetenerType)
+                            ? _selectedSweetenerType
+                            : null;
 
                     return Column(
                       children: [
@@ -225,7 +232,8 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _sweetenerAmountController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                             decoration: const InputDecoration(
                               labelText: 'Количество подсластителя (г/л)',
                               border: OutlineInputBorder(),
@@ -233,7 +241,8 @@ class _ContainerFormDialogState extends State<ContainerFormDialog> {
                             validator: (v) {
                               if (_selectedSweetenerType != null) {
                                 final val = _parseDouble(v ?? '');
-                                if (val == null || val < 0) return 'Укажите значение';
+                                if (val == null || val < 0)
+                                  return 'Укажите значение';
                               }
                               return null;
                             },

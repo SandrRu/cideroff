@@ -44,7 +44,8 @@ class BatchHistory {
     List<BatchContainer> parsedContainers = const [];
 
     if (json['containers'] != null) {
-      if (json['containers'] is String && (json['containers'] as String).isNotEmpty) {
+      if (json['containers'] is String &&
+          (json['containers'] as String).isNotEmpty) {
         try {
           final List dynamicList = jsonDecode(json['containers'] as String);
           parsedContainers = dynamicList
@@ -61,12 +62,14 @@ class BatchHistory {
     return BatchHistory(
       id: json['id'] as String,
       batchId: json['batchId'] as String,
-      timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ?? DateTime.now(),
+      timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
+          DateTime.now(),
       stepTitle: json['stepTitle'] as String,
       actionName: json['actionName'] as String,
       sugarMeasured: (json['sugarMeasured'] as num?)?.toDouble(),
       alcoholMeasured: (json['alcoholMeasured'] as num?)?.toDouble(),
-      nonFermentableSugarGrams: (json['nonFermentableSugarGrams'] as num?)?.toDouble(),
+      nonFermentableSugarGrams:
+          (json['nonFermentableSugarGrams'] as num?)?.toDouble(),
       containers: parsedContainers,
       note: json['note'] as String?,
     );

@@ -20,7 +20,7 @@ class NotificationService {
     if (!Platform.isAndroid && !Platform.isIOS) return;
 
     tz.initializeTimeZones();
-    
+
     try {
       final dynamic timeZoneResult = await FlutterTimezone.getLocalTimezone();
       final String timeZoneName = timeZoneResult.toString();
@@ -30,7 +30,8 @@ class NotificationService {
       tz.setLocalLocation(tz.getLocation('UTC'));
     }
 
-    const androidInitSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInitSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInitSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -44,8 +45,9 @@ class NotificationService {
 
     await flutterLocalNotificationsPlugin.initialize(settings: initSettings);
 
-    final androidImplementation = flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    final androidImplementation =
+        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
     if (androidImplementation != null) {
       await androidImplementation.requestNotificationsPermission();
     }
@@ -61,7 +63,7 @@ class NotificationService {
     if (!Platform.isAndroid && !Platform.isIOS) return;
     if (scheduledDate.isBefore(DateTime.now())) return;
 
-  try {
+    try {
       await flutterLocalNotificationsPlugin.zonedSchedule(
         id: id,
         title: title,
@@ -71,7 +73,8 @@ class NotificationService {
           android: AndroidNotificationDetails(
             'batch_reminders',
             'Напоминания о партиях',
-            channelDescription: 'Уведомления о наступлении следующего этапа брожения',
+            channelDescription:
+                'Уведомления о наступлении следующего этапа брожения',
             importance: Importance.high,
             priority: Priority.high,
             icon: '@mipmap/ic_launcher',
@@ -85,7 +88,7 @@ class NotificationService {
     }
   }
 
-/// Отмена уведомления по ID
+  /// Отмена уведомления по ID
   Future<void> cancelNotification(int id) async {
     if (!Platform.isAndroid && !Platform.isIOS) return;
     // Передача именованного параметра id: id для v22.x

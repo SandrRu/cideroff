@@ -17,7 +17,8 @@ class LabelTemplateListScreen extends StatefulWidget {
   });
 
   @override
-  State<LabelTemplateListScreen> createState() => _LabelTemplateListScreenState();
+  State<LabelTemplateListScreen> createState() =>
+      _LabelTemplateListScreenState();
 }
 
 class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
@@ -53,14 +54,24 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.batch != null ? 'Этикетка: ${widget.batch!.name}' : 'Макеты наклеек'),
+        title: Text(widget.batch != null
+            ? 'Этикетка: ${widget.batch!.name}'
+            : 'Макеты наклеек'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'Переменные для SVG',
+            onPressed: () => _showSvgVariablesHelpDialog(context),
+          ),
+        ],
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(12),
         itemCount: _templates.length,
         itemBuilder: (context, index) {
           final item = _templates[index];
-          final isSvg = item.schemaJson.contains('.svg') || item.schemaJson.contains('<svg');
+          final isSvg = item.schemaJson.contains('.svg') ||
+              item.schemaJson.contains('<svg');
 
           return Card(
             child: ListTile(
@@ -68,7 +79,8 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                 isSvg ? Icons.extension_outlined : Icons.qr_code_2,
                 color: isSvg ? Colors.deepPurpleAccent : Colors.amber,
               ),
-              title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              title: Text(item.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text('Размер: ${item.widthMm} × ${item.heightMm} мм'),
               onTap: widget.batch != null
                   ? () {
@@ -84,7 +96,8 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                     onPressed: () => _showEditTemplateDialog(item),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                    icon: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent),
                     tooltip: 'Удалить макет',
                     onPressed: () => _showDeleteTemplateDialog(item),
                   ),
@@ -123,9 +136,18 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.upload_file, color: Colors.deepPurpleAccent),
+                leading: const Icon(Icons.upload_file,
+                    color: Colors.deepPurpleAccent),
                 title: const Text('Загрузить SVG-шаблон'),
                 subtitle: const Text('Импортировать готовый макет SVG'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.info_outline, color: Colors.grey),
+                  tooltip: 'Список переменных',
+                  onPressed: () {
+                    Navigator.pop(bottomSheetContext);
+                    _showSvgVariablesHelpDialog(context);
+                  },
+                ),
                 onTap: () async {
                   Navigator.pop(bottomSheetContext);
                   await showDialog(
@@ -140,6 +162,93 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _showSvgVariablesHelpDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Переменные для SVG-макета'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text(
+                  'Используйте данные метки (плейсхолдеры) в тексте вашего SVG-файла. При печати этикетки они заменятся на данные партии:',
+                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                ),
+                SizedBox(height: 12),
+                _VariableGroup(
+                  title: 'Партия',
+                  items: [
+                    '{{BATCH_NAME}} — Имя партии',
+                    '{{BATCH_ID}} — ID партии',
+                  ],
+                ),
+                _VariableGroup(
+                  title: 'Сорт яблок',
+                  items: [
+                    '{{APPLE_VARIETY}} — Сорт яблок',
+                  ],
+                ),
+                _VariableGroup(
+                  title: 'Даты',
+                  items: [
+                    '{{PRESS_DATE}} — Дата отжима',
+                    '{{BOTTLING_DATE}} — Дата розлива',
+                  ],
+                ),
+                _VariableGroup(
+                  title: 'Сладость и Тип',
+                  items: [
+                    '{{SWEETNESS_CATEGORY}} — Сладость',
+                    '{{DRINK_TYPE}} — Категория напитка',
+                  ],
+                ),
+                _VariableGroup(
+                  title: 'Крепость и Сахар',
+                  items: [
+                    '{{ABV}} — Крепость',
+                    '{{SUGAR}} — Начальный сахар',
+                    '{{FINAL_SUGAR}} — Конечный сахар',
+                  ],
+                ),
+                _VariableGroup(
+                  title: 'Заметки и Описание',
+                  items: [
+                    '{{NOTES}} — Заметки',
+                    '{{description}} — Описание',
+                  ],
+                ),
+                _VariableGroup(
+                  title: 'Дрожжи',
+                  items: [
+                    '{{YEAST_NAME}} — Название дрожжей',
+                  ],
+                ),
+                _VariableGroup(
+                  title: 'Тара и Подсластитель',
+                  items: [
+                    '{{CONTAINER_TITLE}} — Название тары',
+                    '{{CONTAINER_TYPE}} — Тип тары',
+                    '{{SWEETENER}} — Подсластитель',
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Закрыть'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -164,7 +273,8 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Удалить макет?'),
-        content: Text('Вы уверены, что хотите удалить макет "${template.name}"?'),
+        content:
+            Text('Вы уверены, что хотите удалить макет "${template.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -197,8 +307,10 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
   /// Диалог редактирования существующего макета
   void _showEditTemplateDialog(LabelTemplate template) {
     final nameController = TextEditingController(text: template.name);
-    final widthController = TextEditingController(text: template.widthMm.toString());
-    final heightController = TextEditingController(text: template.heightMm.toString());
+    final widthController =
+        TextEditingController(text: template.widthMm.toString());
+    final heightController =
+        TextEditingController(text: template.heightMm.toString());
 
     showDialog(
       context: context,
@@ -217,7 +329,8 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                 Expanded(
                   child: TextField(
                     controller: widthController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(labelText: 'Ширина (мм)'),
                   ),
                 ),
@@ -225,7 +338,8 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                 Expanded(
                   child: TextField(
                     controller: heightController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(labelText: 'Высота (мм)'),
                   ),
                 ),
@@ -248,15 +362,17 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                 final updatedTpl = LabelTemplate(
                   id: template.id,
                   name: nameController.text.trim(),
-                  widthMm: double.tryParse(widthController.text) ?? template.widthMm,
-                  heightMm: double.tryParse(heightController.text) ?? template.heightMm,
+                  widthMm:
+                      double.tryParse(widthController.text) ?? template.widthMm,
+                  heightMm: double.tryParse(heightController.text) ??
+                      template.heightMm,
                   schemaJson: template.schemaJson,
                 );
 
                 Navigator.pop(dialogContext);
 
                 await DatabaseService.instance.updateLabelTemplate(updatedTpl);
-                
+
                 if (!mounted) return;
                 _loadTemplates();
               }
@@ -290,7 +406,8 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                 Expanded(
                   child: TextField(
                     controller: widthController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(labelText: 'Ширина (мм)'),
                   ),
                 ),
@@ -298,7 +415,8 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                 Expanded(
                   child: TextField(
                     controller: heightController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(labelText: 'Высота (мм)'),
                   ),
                 ),
@@ -328,13 +446,51 @@ class _LabelTemplateListScreenState extends State<LabelTemplateListScreen> {
                 Navigator.pop(dialogContext);
 
                 await DatabaseService.instance.insertLabelTemplate(tpl);
-                
+
                 if (!mounted) return;
                 _loadTemplates();
               }
             },
             child: const Text('Сохранить'),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VariableGroup extends StatelessWidget {
+  final String title;
+  final List<String> items;
+
+  const _VariableGroup({required this.title, required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: Colors.deepPurple,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ...items.map((item) => Padding(
+                padding: const EdgeInsets.only(left: 8.0, top: 2.0),
+                child: SelectableText(
+                  item,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  ),
+                ),
+              )),
         ],
       ),
     );

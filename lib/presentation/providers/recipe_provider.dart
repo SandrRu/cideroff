@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart'; // <-- Добавлен пропущенный импорт Uuid
+import 'package:uuid/uuid.dart';
 import '../../data/datasources/database_service.dart';
 import '../../data/models/recipe_model.dart';
+import '../../data/models/batch_recipe_link_model.dart';
 
 class RecipeProvider extends ChangeNotifier {
   final DatabaseService _db = DatabaseService.instance;
@@ -10,7 +11,8 @@ class RecipeProvider extends ChangeNotifier {
   bool _isLoading = false;
 
   List<Recipe> get recipes => _recipes;
-  List<Recipe> get favoriteRecipes => _recipes.where((r) => r.isFavorite).toList();
+  List<Recipe> get favoriteRecipes =>
+      _recipes.where((r) => r.isFavorite).toList();
   bool get isLoading => _isLoading;
 
   RecipeProvider();
@@ -40,10 +42,11 @@ class RecipeProvider extends ChangeNotifier {
   }
 
   /// Дублирование любого (в т.ч. системного) рецепта в пользовательский для редактирования
-  Future<void> duplicateAsCustom(Recipe sourceRecipe, {String? newTitle}) async {
+  Future<void> duplicateAsCustom(Recipe sourceRecipe,
+      {String? newTitle}) async {
     final ruTitle = sourceRecipe.getTitle('ru');
-    final titleText = newTitle?.trim().isNotEmpty == true 
-        ? newTitle!.trim() 
+    final titleText = newTitle?.trim().isNotEmpty == true
+        ? newTitle!.trim()
         : '$ruTitle (Копия)';
 
     final newRecipe = sourceRecipe.copyWith(
@@ -54,5 +57,15 @@ class RecipeProvider extends ChangeNotifier {
     );
     await _db.insertRecipe(newRecipe);
     await loadRecipes();
+  }
+
+  /// Получение списка всех рецептов, привязанных к определенной партии
+  Future<List<Recipe>> getRecipesForBatch(String batchId) async {
+    return await _db.getRecipesForBatch(batchId);
+  }
+
+  /// Получение цепочки связей рецептов с партией
+  Future<List<BatchRecipeLink>> getRecipeLinksForBatch(String batchId) async {
+    return await _db.getRecipeLinksForBatch(batchId);
   }
 }

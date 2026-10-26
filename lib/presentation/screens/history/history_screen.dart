@@ -48,7 +48,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final historyList = (snapshot.data?['history'] as List<BatchHistory>?) ?? [];
+          final historyList =
+              (snapshot.data?['history'] as List<BatchHistory>?) ?? [];
           final batch = snapshot.data?['batch'] as Batch?;
 
           if (historyList.isEmpty) {
@@ -80,14 +81,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
                 final effectiveContainers = item.containers.isNotEmpty
                     ? item.containers
-                    : (isBottlingStep && batch != null ? batch.containers : <BatchContainer>[]);
+                    : (isBottlingStep && batch != null
+                        ? batch.containers
+                        : <BatchContainer>[]);
 
                 double? calculatedSweetness = batch?.finalSugarWithPriming;
                 if (calculatedSweetness == null &&
                     item.sugarMeasured != null &&
                     item.nonFermentableSugarGrams != null &&
                     item.nonFermentableSugarGrams! > 0) {
-                  calculatedSweetness = item.sugarMeasured! + (item.nonFermentableSugarGrams! / 10.0);
+                  calculatedSweetness = item.sugarMeasured! +
+                      (item.nonFermentableSugarGrams! / 10.0);
                 }
                 calculatedSweetness ??= item.sugarMeasured;
 
@@ -99,7 +103,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         Container(
                           width: 2,
                           height: 16,
-                          color: isFirst ? Colors.transparent : Colors.amber.shade300,
+                          color: isFirst
+                              ? Colors.transparent
+                              : Colors.amber.shade300,
                         ),
                         Container(
                           width: 14,
@@ -113,7 +119,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         Container(
                           width: 2,
                           height: effectiveContainers.isNotEmpty ? 120 : 60,
-                          color: isLast ? Colors.transparent : Colors.amber.shade300,
+                          color: isLast
+                              ? Colors.transparent
+                              : Colors.amber.shade300,
                         ),
                       ],
                     ),
@@ -130,7 +138,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
@@ -153,7 +162,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       ),
                                       const SizedBox(width: 4),
                                       IconButton(
-                                        icon: const Icon(Icons.edit_outlined, size: 18),
+                                        icon: const Icon(Icons.edit_outlined,
+                                            size: 18),
                                         tooltip: 'Редактировать',
                                         constraints: const BoxConstraints(),
                                         padding: const EdgeInsets.all(4),
@@ -161,17 +171,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           RecipeStep? matchedStep;
                                           if (batch?.currentRecipeId != null) {
                                             try {
-                                              final recipeProvider = context.read<RecipeProvider>();
-                                              final recipe = recipeProvider.recipes.firstWhere(
-                                                (r) => r.id == batch?.currentRecipeId,
+                                              final recipeProvider = context
+                                                  .read<RecipeProvider>();
+                                              final recipe = recipeProvider
+                                                  .recipes
+                                                  .firstWhere(
+                                                (r) =>
+                                                    r.id ==
+                                                    batch?.currentRecipeId,
                                               );
-                                              matchedStep = recipe.steps.firstWhere(
-                                                (s) => s.getTitle('ru') == item.stepTitle,
+                                              matchedStep =
+                                                  recipe.steps.firstWhere(
+                                                (s) =>
+                                                    s.getTitle('ru') ==
+                                                    item.stepTitle,
                                               );
                                             } catch (_) {}
                                           }
 
-                                          final editResult = await showDialog<EditHistoryDialogResult>(
+                                          final editResult = await showDialog<
+                                              EditHistoryDialogResult>(
                                             context: context,
                                             builder: (_) => EditHistoryDialog(
                                               history: item,
@@ -183,29 +202,37 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           if (!mounted) return;
 
                                           if (editResult != null) {
-                                            final batchProvider = context.read<BatchProvider>();
-                                            await batchProvider.updateBatchHistory(editResult.history);
+                                            final batchProvider =
+                                                context.read<BatchProvider>();
+                                            await batchProvider
+                                                .updateBatchHistory(
+                                                    editResult.history);
 
                                             if (batch != null) {
                                               Batch updatedBatch = batch;
                                               bool needsBatchUpdate = false;
 
                                               if (isBottlingStep) {
-                                                updatedBatch = updatedBatch.copyWith(
-                                                  containers: editResult.history.containers,
+                                                updatedBatch =
+                                                    updatedBatch.copyWith(
+                                                  containers: editResult
+                                                      .history.containers,
                                                 );
                                                 needsBatchUpdate = true;
                                               }
 
-                                              if (editResult.yeastId != batch.yeastId) {
-                                                updatedBatch = updatedBatch.copyWith(
+                                              if (editResult.yeastId !=
+                                                  batch.yeastId) {
+                                                updatedBatch =
+                                                    updatedBatch.copyWith(
                                                   yeastId: editResult.yeastId,
                                                 );
                                                 needsBatchUpdate = true;
                                               }
 
                                               if (needsBatchUpdate) {
-                                                await batchProvider.updateBatch(updatedBatch);
+                                                await batchProvider
+                                                    .updateBatch(updatedBatch);
                                               }
                                             }
                                             _refresh();
@@ -213,27 +240,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                         },
                                       ),
                                       IconButton(
-                                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                                        icon: const Icon(Icons.delete_outline,
+                                            size: 18, color: Colors.redAccent),
                                         tooltip: 'Удалить шаг',
                                         constraints: const BoxConstraints(),
                                         padding: const EdgeInsets.all(4),
                                         onPressed: () async {
-                                          final confirm = await showDialog<bool>(
+                                          final confirm =
+                                              await showDialog<bool>(
                                             context: context,
                                             builder: (ctx) => AlertDialog(
                                               title: const Text('Удалить шаг?'),
-                                              content: Text('Удалить запись "${item.stepTitle}" из истории?'),
+                                              content: Text(
+                                                  'Удалить запись "${item.stepTitle}" из истории?'),
                                               actions: [
                                                 TextButton(
-                                                  onPressed: () => Navigator.pop(ctx, false),
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx, false),
                                                   child: const Text('Отмена'),
                                                 ),
                                                 ElevatedButton(
-                                                  style: ElevatedButton.styleFrom(
+                                                  style:
+                                                      ElevatedButton.styleFrom(
                                                     backgroundColor: Colors.red,
-                                                    foregroundColor: Colors.white,
+                                                    foregroundColor:
+                                                        Colors.white,
                                                   ),
-                                                  onPressed: () => Navigator.pop(ctx, true),
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx, true),
                                                   child: const Text('Удалить'),
                                                 ),
                                               ],
@@ -243,7 +277,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           if (!mounted) return;
 
                                           if (confirm == true) {
-                                            await context.read<BatchProvider>().deleteBatchHistory(item.id);
+                                            await context
+                                                .read<BatchProvider>()
+                                                .deleteBatchHistory(item.id);
                                             _refresh();
                                           }
                                         },
@@ -262,7 +298,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               ),
                               if (item.sugarMeasured != null ||
                                   item.alcoholMeasured != null ||
-                                  (isBottlingStep && calculatedSweetness != null && effectiveContainers.isEmpty)) ...[
+                                  (isBottlingStep &&
+                                      calculatedSweetness != null &&
+                                      effectiveContainers.isEmpty)) ...[
                                 const SizedBox(height: 8),
                                 Wrap(
                                   spacing: 12,
@@ -271,14 +309,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     if (item.sugarMeasured != null)
                                       Chip(
                                         visualDensity: VisualDensity.compact,
-                                        label: Text('Замер сахара: ${item.sugarMeasured} г/100мл'),
+                                        label: Text(
+                                            'Замер сахара: ${item.sugarMeasured} г/100мл'),
                                       ),
                                     if (item.alcoholMeasured != null)
                                       Chip(
                                         visualDensity: VisualDensity.compact,
-                                        label: Text('Спирт: ${item.alcoholMeasured}% об.'),
+                                        label: Text(
+                                            'Спирт: ${item.alcoholMeasured}% об.'),
                                       ),
-                                    if (isBottlingStep && calculatedSweetness != null && effectiveContainers.isEmpty)
+                                    if (isBottlingStep &&
+                                        calculatedSweetness != null &&
+                                        effectiveContainers.isEmpty)
                                       Chip(
                                         backgroundColor: Colors.amber.shade100,
                                         visualDensity: VisualDensity.compact,
@@ -293,7 +335,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   ],
                                 ),
                               ],
-
                               if (effectiveContainers.isNotEmpty) ...[
                                 const SizedBox(height: 10),
                                 Text(
@@ -306,25 +347,35 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 Column(
-                                  children: effectiveContainers.map((container) {
-                                    final baseSugar = item.sugarMeasured ?? batch?.finalSugar ?? 0.0;
-                                    final sweetenerGramsPer100ml = container.sweetenerAmountGramsPerLiter / 10.0;
-                                    final totalSweetness = baseSugar + sweetenerGramsPer100ml;
+                                  children:
+                                      effectiveContainers.map((container) {
+                                    final baseSugar = item.sugarMeasured ??
+                                        batch?.finalSugar ??
+                                        0.0;
+                                    final sweetenerGramsPer100ml =
+                                        container.sweetenerAmountGramsPerLiter /
+                                            10.0;
+                                    final totalSweetness =
+                                        baseSugar + sweetenerGramsPer100ml;
 
                                     return Container(
                                       margin: const EdgeInsets.only(bottom: 6),
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: Colors.amber.shade50.withOpacity(0.5),
+                                        color: Colors.amber.shade50
+                                            .withValues(alpha: 0.5),
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: Colors.amber.shade200),
+                                        border: Border.all(
+                                            color: Colors.amber.shade200),
                                       ),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   '${container.title} (${container.containerType})',
@@ -332,7 +383,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                                     fontWeight: FontWeight.w600,
                                                     fontSize: 13,
                                                   ),
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                                 Text(
                                                   '${container.count} шт × ${container.containerVolumeLiters}л (${container.totalVolumeLiters.toStringAsFixed(1)}л)'
@@ -346,10 +398,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                             ),
                                           ),
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 3),
                                             decoration: BoxDecoration(
                                               color: Colors.amber.shade200,
-                                              borderRadius: BorderRadius.circular(4),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
                                             ),
                                             child: Text(
                                               'Сладость: ${totalSweetness.toStringAsFixed(1)} г/100мл',
@@ -366,8 +420,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   }).toList(),
                                 ),
                               ],
-
-                              if (item.note != null && item.note!.isNotEmpty) ...[
+                              if (item.note != null &&
+                                  item.note!.isNotEmpty) ...[
                                 const SizedBox(height: 6),
                                 Text(
                                   'Заметка: ${item.note}',

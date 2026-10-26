@@ -138,7 +138,8 @@ class BatchCardSettingsScreen extends StatelessWidget {
           CheckboxListTile(
             activeColor: Colors.amber,
             title: const Text('Название следующего шага'),
-            subtitle: const Text('Показывать этап (например: "Снятие с осадка")'),
+            subtitle:
+                const Text('Показывать этап (например: "Снятие с осадка")'),
             value: cardSettings.showNextStepTitle,
             onChanged: (val) {
               if (val != null) {

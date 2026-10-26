@@ -54,19 +54,22 @@ class _YeastListScreenState extends State<YeastListScreen> {
                             Expanded(
                               child: Text(
                                 yeast.name,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                             if (!yeast.isCustom)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade200,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text(
                                   'Базовый',
-                                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                                  style: TextStyle(
+                                      fontSize: 10, color: Colors.grey),
                                 ),
                               ),
                           ],
@@ -77,13 +80,15 @@ class _YeastListScreenState extends State<YeastListScreen> {
                             const SizedBox(height: 4),
                             Text(
                               'Категория: ${yeast.category}',
-                              style: TextStyle(color: Colors.amber.shade900, fontSize: 12),
+                              style: TextStyle(
+                                  color: Colors.amber.shade900, fontSize: 12),
                             ),
                             if (yeast.description.isNotEmpty) ...[
                               const SizedBox(height: 2),
                               Text(
                                 yeast.description,
-                                style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                                style: TextStyle(
+                                    color: Colors.grey.shade700, fontSize: 13),
                               ),
                             ],
                           ],
@@ -93,12 +98,16 @@ class _YeastListScreenState extends State<YeastListScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                                    onPressed: () => _showYeastDialog(context, yeast: yeast),
+                                    icon: const Icon(Icons.edit_outlined,
+                                        color: Colors.blue),
+                                    onPressed: () =>
+                                        _showYeastDialog(context, yeast: yeast),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                    onPressed: () => _showDeleteDialog(context, yeast),
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: Colors.red),
+                                    onPressed: () =>
+                                        _showDeleteDialog(context, yeast),
                                   ),
                                 ],
                               )
@@ -132,8 +141,10 @@ class _YeastListScreenState extends State<YeastListScreen> {
 
   void _showYeastDialog(BuildContext context, {Yeast? yeast}) {
     final nameController = TextEditingController(text: yeast?.name ?? '');
-    final categoryController = TextEditingController(text: yeast?.category ?? 'Cider');
-    final descController = TextEditingController(text: yeast?.description ?? '');
+    final categoryController =
+        TextEditingController(text: yeast?.category ?? 'Cider');
+    final descController =
+        TextEditingController(text: yeast?.description ?? '');
 
     showDialog(
       context: context,

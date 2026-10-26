@@ -10,6 +10,7 @@ import 'package:cider_off/data/models/yeast_model.dart';
 import 'package:cider_off/data/models/batch_container_model.dart';
 import 'package:cider_off/data/models/drink_type_model.dart';
 import 'package:cider_off/data/models/sweetener_type_model.dart';
+import 'package:cider_off/data/models/batch_recipe_link_model.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -29,7 +30,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 12,
+      version: 14,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON;');
       },
@@ -118,6 +119,19 @@ class DatabaseService {
     ''');
 
     await db.execute('''
+      CREATE TABLE batch_recipes (
+        batch_id $textType,
+        recipe_id $textType,
+        sequence_order $integerType,
+        assigned_at $textType,
+        notes $textNullable,
+        PRIMARY KEY (batch_id, recipe_id, sequence_order),
+        FOREIGN KEY (batch_id) REFERENCES batches (id) ON DELETE CASCADE,
+        FOREIGN KEY (recipe_id) REFERENCES recipes (id) ON DELETE RESTRICT
+      )
+    ''');
+
+    await db.execute('''
       CREATE TABLE label_templates (
         id $textType PRIMARY KEY,
         name $textType,
@@ -162,11 +176,34 @@ class DatabaseService {
         isCustom $integerType
       )
     ''');
+
+    await _createIndexes(db);
+  }
+
+  /// Индексы по внешним ключам и частым сортировкам.
+  /// Без них выборки истории/тары сканируют таблицу целиком.
+  Future<void> _createIndexes(Database db) async {
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_history_batch ON history (batchId, timestamp DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_containers_batch ON batch_containers (batchId)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_batch_recipes_batch ON batch_recipes (batch_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_batches_press ON batches (pressDate DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_batches_status ON batches (status)',
+    );
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await _addColumnIfNotExists(db, 'batches', 'type', "TEXT DEFAULT 'cider'");
+      await _addColumnIfNotExists(
+          db, 'batches', 'type', "TEXT DEFAULT 'cider'");
       await _addColumnIfNotExists(db, 'batches', 'rawSpiritVolume', 'REAL');
       await _addColumnIfNotExists(db, 'batches', 'rawSpiritABV', 'REAL');
       await _addColumnIfNotExists(db, 'batches', 'distillateVolume', 'REAL');
@@ -178,15 +215,18 @@ class DatabaseService {
 
     if (oldVersion < 3) {
       await _addColumnIfNotExists(db, 'batches', 'primingSugarGrams', 'REAL');
-      await _addColumnIfNotExists(db, 'batches', 'finalSugarWithPriming', 'REAL');
+      await _addColumnIfNotExists(
+          db, 'batches', 'finalSugarWithPriming', 'REAL');
     }
 
     if (oldVersion < 4) {
-      await _addColumnIfNotExists(db, 'batches', 'nonFermentableSugarGrams', 'REAL');
+      await _addColumnIfNotExists(
+          db, 'batches', 'nonFermentableSugarGrams', 'REAL');
     }
-    
+
     if (oldVersion < 5) {
-      await _addColumnIfNotExists(db, 'history', 'nonFermentableSugarGrams', 'REAL');
+      await _addColumnIfNotExists(
+          db, 'history', 'nonFermentableSugarGrams', 'REAL');
     }
 
     if (oldVersion < 6) {
@@ -250,25 +290,28 @@ class DatabaseService {
 
     if (oldVersion < 11) {
       await _addColumnIfNotExists(db, 'label_templates', 'svgContent', 'TEXT');
-      await _addColumnIfNotExists(db, 'label_templates', 'isCustomSvg', 'INTEGER NOT NULL DEFAULT 0');
+      await _addColumnIfNotExists(
+          db, 'label_templates', 'isCustomSvg', 'INTEGER NOT NULL DEFAULT 0');
     }
+
     if (oldVersion < 12) {
-      // Вставляем новые дефолтные дрожжи при обновлении до версии 12
       const newYeasts = [
         {
           'id': 'yeast_safcider_tf6',
           'name': 'Fermentis SafCider TF-6',
           'category': 'Cider',
-          'description': 'Тутти-фрутти штамм. Взрывная фруктовая ароматика, идеальная округлость вкуса для изысканных сладких и полусладких традиционных сидров.',
+          'description':
+              'Тутти-фрутти штамм. Взрывная фруктовая ароматика, идеальная округлость вкуса для изысканных сладких и полусладких традиционных сидров.',
           'isCustom': 0,
         },
         {
           'id': 'yeast_lalvin_71B',
           'name': 'Lalvin 71B',
           'category': 'Universal',
-          'description': 'Фруктово-ягодный штамм. Высокий ароматный потенциал, мягкое снижение кислотности для нежных фруктовых вин, полусладких сидров и медовух.',
+          'description':
+              'Фруктово-ягодный штамм. Высокий ароматный потенциал, мягкое снижение кислотности для нежных фруктовых вин, полусладких сидров и медовух.',
           'isCustom': 0,
-        },        
+        },
       ];
 
       for (final y in newYeasts) {
@@ -278,6 +321,32 @@ class DatabaseService {
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
+    }
+
+    if (oldVersion < 13) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS batch_recipes (
+          batch_id TEXT NOT NULL,
+          recipe_id TEXT NOT NULL,
+          sequence_order INTEGER NOT NULL,
+          assigned_at TEXT NOT NULL,
+          notes TEXT,
+          PRIMARY KEY (batch_id, recipe_id, sequence_order),
+          FOREIGN KEY (batch_id) REFERENCES batches (id) ON DELETE CASCADE,
+          FOREIGN KEY (recipe_id) REFERENCES recipes (id) ON DELETE RESTRICT
+        )
+      ''');
+
+      await db.execute('''
+        INSERT INTO batch_recipes (batch_id, recipe_id, sequence_order, assigned_at)
+        SELECT id, currentRecipeId, 1, pressDate 
+        FROM batches 
+        WHERE currentRecipeId IS NOT NULL
+      ''');
+    }
+
+    if (oldVersion < 14) {
+      await _createIndexes(db);
     }
   }
 
@@ -294,32 +363,93 @@ class DatabaseService {
     }
   }
 
-  // --- CRUD ДЛЯ ПАРТИЙ С ПОДДЕРЖКОЙ ПОДПАРТИЙ ---
+  // --- CRUD ДЛЯ ПАРТИЙ С ПОДДЕРЖКОЙ ПОДПАРТИЙ И МНОГОЧИСЛЕННЫХ РЕЦЕПТОВ ---
 
-  Future<void> insertBatch(Batch batch) async {
+  Future<void> insertBatch(
+    Batch batch, {
+    List<BatchRecipeLink>? recipeLinks,
+    BatchHistory? history,
+    DatabaseExecutor? executor,
+  }) async {
+    if (executor != null) {
+      await _insertBatchRows(executor, batch, recipeLinks, history);
+      return;
+    }
+
     final db = await instance.database;
     await db.transaction((txn) async {
-      await txn.insert('batches', batch.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
-
-      if (batch.containers.isNotEmpty) {
-        await txn.delete('batch_containers', where: 'batchId = ?', whereArgs: [batch.id]);
-        for (final container in batch.containers) {
-          await txn.insert('batch_containers', container.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
-        }
-      }
+      await _insertBatchRows(txn, batch, recipeLinks, history);
     });
+  }
+
+  Future<void> _insertBatchRows(
+    DatabaseExecutor txn,
+    Batch batch,
+    List<BatchRecipeLink>? recipeLinks,
+    BatchHistory? history,
+  ) async {
+    await txn.insert('batches', batch.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
+
+    if (batch.containers.isNotEmpty) {
+      await txn.delete('batch_containers',
+          where: 'batchId = ?', whereArgs: [batch.id]);
+      for (final container in batch.containers) {
+        await txn.insert('batch_containers', container.toJson(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    }
+
+    if (recipeLinks != null && recipeLinks.isNotEmpty) {
+      await txn.delete('batch_recipes',
+          where: 'batch_id = ?', whereArgs: [batch.id]);
+      for (final link in recipeLinks) {
+        await txn.insert('batch_recipes', link.toJson(),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    } else if (batch.currentRecipeId != null) {
+      await txn.insert(
+          'batch_recipes',
+          {
+            'batch_id': batch.id,
+            'recipe_id': batch.currentRecipeId,
+            'sequence_order': 1,
+            'assigned_at': batch.pressDate,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
+    if (history != null) {
+      await txn.insert('history', history.toJson(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
   }
 
   Future<List<Batch>> getAllBatches() async {
     final db = await instance.database;
     final result = await db.query('batches', orderBy: 'pressDate DESC');
-    
+
+    // Одна выборка всей тары вместо N запросов по каждой партии.
+    final containerRows = await db.query('batch_containers');
+    final containersByBatch = <String, List<BatchContainer>>{};
+    for (final row in containerRows) {
+      try {
+        final container = BatchContainer.fromJson(row);
+        containersByBatch
+            .putIfAbsent(container.batchId, () => <BatchContainer>[])
+            .add(container);
+      } catch (e) {
+        debugPrint('Ошибка парсинга тары: $e');
+      }
+    }
+
     final List<Batch> batches = [];
     for (final json in result) {
       try {
         final batchId = json['id'] as String;
-        final containers = await getContainersForBatch(batchId);
-        batches.add(Batch.fromJson(json, containers: containers));
+        batches.add(Batch.fromJson(json,
+            containers:
+                containersByBatch[batchId] ?? const <BatchContainer>[]));
       } catch (e, stack) {
         debugPrint('Ошибка парсинга партии ID ${json['id']}: $e');
         debugPrint(stack.toString());
@@ -345,18 +475,45 @@ class DatabaseService {
   Future<void> updateBatch(Batch batch) async {
     final db = await instance.database;
     await db.transaction((txn) async {
-      await txn.update(
-        'batches',
-        batch.toMap(),
-        where: 'id = ?',
-        whereArgs: [batch.id],
-      );
-
-      await txn.delete('batch_containers', where: 'batchId = ?', whereArgs: [batch.id]);
-      for (final container in batch.containers) {
-        await txn.insert('batch_containers', container.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      await _updateBatchRows(txn, batch);
     });
+  }
+
+  Future<void> _updateBatchRows(DatabaseExecutor txn, Batch batch) async {
+    await txn.update(
+      'batches',
+      batch.toMap(),
+      where: 'id = ?',
+      whereArgs: [batch.id],
+    );
+
+    await txn.delete('batch_containers',
+        where: 'batchId = ?', whereArgs: [batch.id]);
+    for (final container in batch.containers) {
+      await txn.insert('batch_containers', container.toJson(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
+  /// Атомарно сохраняет результат шага: обновляет партию и пишет запись истории.
+  /// Иначе при сбое между двумя записями история и статус партии расходятся.
+  Future<void> saveBatchStepResult({
+    required Batch batch,
+    required BatchHistory history,
+  }) async {
+    final db = await instance.database;
+    await db.transaction((txn) async {
+      await _updateBatchRows(txn, batch);
+      await txn.insert('history', history.toJson(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    });
+  }
+
+  /// Выполняет набор операций в одной транзакции SQLite.
+  Future<T> inTransaction<T>(
+      Future<T> Function(DatabaseExecutor txn) action) async {
+    final db = await instance.database;
+    return db.transaction<T>((txn) => action(txn));
   }
 
   Future<void> deleteBatch(String id) async {
@@ -364,11 +521,103 @@ class DatabaseService {
     await db.delete('batches', where: 'id = ?', whereArgs: [id]);
   }
 
+  // --- CRUD ДЛЯ СВЯЗЕЙ ПАРТИЙ С РЕЦЕПТАМИ (batch_recipes) ---
+
+  Future<void> linkRecipeToBatch({
+    required String batchId,
+    required String recipeId,
+    int sequenceOrder = 1,
+    String? assignedAt,
+    String? notes,
+    DatabaseExecutor? executor,
+  }) async {
+    final db = executor ?? await instance.database;
+    final now = assignedAt ?? DateTime.now().toIso8601String();
+
+    await db.insert(
+      'batch_recipes',
+      {
+        'batch_id': batchId,
+        'recipe_id': recipeId,
+        'sequence_order': sequenceOrder,
+        'assigned_at': now,
+        'notes': notes,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> unlinkRecipeFromBatch(String batchId, String recipeId,
+      {int? sequenceOrder}) async {
+    final db = await instance.database;
+    if (sequenceOrder != null) {
+      await db.delete(
+        'batch_recipes',
+        where: 'batch_id = ? AND recipe_id = ? AND sequence_order = ?',
+        whereArgs: [batchId, recipeId, sequenceOrder],
+      );
+    } else {
+      await db.delete(
+        'batch_recipes',
+        where: 'batch_id = ? AND recipe_id = ?',
+        whereArgs: [batchId, recipeId],
+      );
+    }
+  }
+
+  Future<List<BatchRecipeLink>> getRecipeLinksForBatch(String batchId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'batch_recipes',
+      where: 'batch_id = ?',
+      whereArgs: [batchId],
+      orderBy: 'sequence_order ASC',
+    );
+    return result.map((json) => BatchRecipeLink.fromJson(json)).toList();
+  }
+
+  Future<List<Recipe>> getRecipesForBatch(String batchId) async {
+    final db = await instance.database;
+    final result = await db.rawQuery('''
+      SELECT r.* 
+      FROM recipes r
+      INNER JOIN batch_recipes br ON r.id = br.recipe_id
+      WHERE br.batch_id = ?
+      ORDER BY br.sequence_order ASC
+    ''', [batchId]);
+
+    return result.map((map) {
+      final mutable = Map<String, dynamic>.from(map);
+
+      if (mutable['title'] is String) {
+        mutable['title'] = jsonDecode(mutable['title'] as String);
+      }
+      if (mutable['description'] is String) {
+        mutable['description'] = jsonDecode(mutable['description'] as String);
+      } else if (mutable['description'] == null) {
+        mutable['description'] = {};
+      }
+
+      mutable['isCustom'] =
+          mutable['isCustom'] == 1 || mutable['isCustom'] == true;
+      mutable['isFavorite'] =
+          mutable['isFavorite'] == 1 || mutable['isFavorite'] == true;
+
+      if (mutable['steps'] is String) {
+        mutable['steps'] = jsonDecode(mutable['steps'] as String);
+      }
+
+      return Recipe.fromJson(mutable);
+    }).toList();
+  }
+
   // --- CRUD ДЛЯ ИСТОРИИ ---
 
-  Future<void> insertHistory(BatchHistory history) async {
-    final db = await instance.database;
-    await db.insert('history', history.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<void> insertHistory(BatchHistory history,
+      {DatabaseExecutor? executor}) async {
+    final db = executor ?? await instance.database;
+    await db.insert('history', history.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<BatchHistory>> getHistoryForBatch(String batchId) async {
@@ -403,17 +652,21 @@ class DatabaseService {
 
   // --- CRUD ДЛЯ РЕЦЕПТОВ ---
 
-  Future<void> insertRecipe(Recipe recipe) async {
-    final db = await instance.database;
+  Future<void> insertRecipe(Recipe recipe, {DatabaseExecutor? executor}) async {
+    final db = executor ?? await instance.database;
 
-    final existing = await db.query('recipes', where: 'id = ?', whereArgs: [recipe.id]);
+    final existing =
+        await db.query('recipes', where: 'id = ?', whereArgs: [recipe.id]);
 
     if (existing.isNotEmpty) {
-      final isExistingCustom = (existing.first['isCustom'] == 1 || existing.first['isCustom'] == true);
+      final isExistingCustom = (existing.first['isCustom'] == 1 ||
+          existing.first['isCustom'] == true);
 
       if (!isExistingCustom) {
         final existingTitle = existing.first['title'] as String;
-        final existingDesc = existing.first['description'] != null ? existing.first['description'] as String : null;
+        final existingDesc = existing.first['description'] != null
+            ? existing.first['description'] as String
+            : null;
         final existingSteps = existing.first['steps'] as String;
 
         await db.update(
@@ -434,12 +687,14 @@ class DatabaseService {
 
     final data = recipe.toJson();
     data['title'] = jsonEncode(data['title']);
-    data['description'] = data['description'] != null ? jsonEncode(data['description']) : null;
+    data['description'] =
+        data['description'] != null ? jsonEncode(data['description']) : null;
     data['isCustom'] = recipe.isCustom ? 1 : 0;
     data['isFavorite'] = recipe.isFavorite ? 1 : 0;
     data['steps'] = jsonEncode(data['steps']);
 
-    await db.insert('recipes', data, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('recipes', data,
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Recipe>> getAllRecipes() async {
@@ -447,7 +702,7 @@ class DatabaseService {
     final result = await db.query('recipes');
     return result.map((map) {
       final mutable = Map<String, dynamic>.from(map);
-      
+
       if (mutable['title'] is String) {
         mutable['title'] = jsonDecode(mutable['title'] as String);
       }
@@ -456,28 +711,32 @@ class DatabaseService {
       } else if (mutable['description'] == null) {
         mutable['description'] = {};
       }
-      
-      mutable['isCustom'] = mutable['isCustom'] == 1 || mutable['isCustom'] == true;
-      mutable['isFavorite'] = mutable['isFavorite'] == 1 || mutable['isFavorite'] == true;
-      
+
+      mutable['isCustom'] =
+          mutable['isCustom'] == 1 || mutable['isCustom'] == true;
+      mutable['isFavorite'] =
+          mutable['isFavorite'] == 1 || mutable['isFavorite'] == true;
+
       if (mutable['steps'] is String) {
         mutable['steps'] = jsonDecode(mutable['steps'] as String);
       }
-      
+
       return Recipe.fromJson(mutable);
     }).toList();
   }
 
   Future<int> deleteRecipe(String id) async {
     final db = await instance.database;
-    return await db.delete('recipes', where: 'id = ? AND isCustom = 1', whereArgs: [id]);
+    return await db
+        .delete('recipes', where: 'id = ? AND isCustom = 1', whereArgs: [id]);
   }
 
   // --- CRUD ДЛЯ ДРОЖЖЕЙ ---
 
-  Future<void> insertYeast(Yeast yeast) async {
-    final db = await instance.database;
-    await db.insert('yeasts', yeast.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<void> insertYeast(Yeast yeast, {DatabaseExecutor? executor}) async {
+    final db = executor ?? await instance.database;
+    await db.insert('yeasts', yeast.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Yeast>> getAllYeasts() async {
@@ -488,32 +747,39 @@ class DatabaseService {
 
   Future<int> deleteYeast(String id) async {
     final db = await instance.database;
-    return await db.delete('yeasts', where: 'id = ? AND isCustom = 1', whereArgs: [id]);
+    return await db
+        .delete('yeasts', where: 'id = ? AND isCustom = 1', whereArgs: [id]);
   }
 
   // --- CRUD ДЛЯ ТИПОВ НАПИТКОВ ---
 
-  Future<void> insertDrinkType(DrinkType drinkType) async {
-    final db = await instance.database;
-    await db.insert('drink_types', drinkType.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<void> insertDrinkType(DrinkType drinkType,
+      {DatabaseExecutor? executor}) async {
+    final db = executor ?? await instance.database;
+    await db.insert('drink_types', drinkType.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<DrinkType>> getAllDrinkTypes() async {
     final db = await instance.database;
-    final result = await db.query('drink_types', orderBy: 'minSugarGramsPerLiter ASC');
+    final result =
+        await db.query('drink_types', orderBy: 'minSugarGramsPerLiter ASC');
     return result.map((json) => DrinkType.fromJson(json)).toList();
   }
 
   Future<int> deleteDrinkType(String id) async {
     final db = await instance.database;
-    return await db.delete('drink_types', where: 'id = ? AND isCustom = 1', whereArgs: [id]);
+    return await db.delete('drink_types',
+        where: 'id = ? AND isCustom = 1', whereArgs: [id]);
   }
 
   // --- CRUD ДЛЯ ПОДПАРТИЙ / ТАРЫ ---
 
-  Future<void> insertBatchContainer(BatchContainer container) async {
-    final db = await instance.database;
-    await db.insert('batch_containers', container.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<void> insertBatchContainer(BatchContainer container,
+      {DatabaseExecutor? executor}) async {
+    final db = executor ?? await instance.database;
+    await db.insert('batch_containers', container.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<BatchContainer>> getContainersForBatch(String batchId) async {
@@ -528,14 +794,17 @@ class DatabaseService {
 
   Future<int> deleteBatchContainer(String id) async {
     final db = await instance.database;
-    return await db.delete('batch_containers', where: 'id = ?', whereArgs: [id]);
+    return await db
+        .delete('batch_containers', where: 'id = ?', whereArgs: [id]);
   }
 
   // --- CRUD ДЛЯ МАКЕТОВ ---
 
-  Future<void> insertLabelTemplate(LabelTemplate template) async {
-    final db = await instance.database;
-    await db.insert('label_templates', template.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<void> insertLabelTemplate(LabelTemplate template,
+      {DatabaseExecutor? executor}) async {
+    final db = executor ?? await instance.database;
+    await db.insert('label_templates', template.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<LabelTemplate>> getAllLabelTemplates() async {
@@ -565,9 +834,11 @@ class DatabaseService {
 
   // --- CRUD ДЛЯ ПОДСЛАСТИТЕЛЕЙ ---
 
-  Future<void> insertSweetenerType(SweetenerType sweetener) async {
-    final db = await instance.database;
-    await db.insert('sweetener_types', sweetener.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<void> insertSweetenerType(SweetenerType sweetener,
+      {DatabaseExecutor? executor}) async {
+    final db = executor ?? await instance.database;
+    await db.insert('sweetener_types', sweetener.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<SweetenerType>> getAllSweetenerTypes() async {
@@ -588,14 +859,16 @@ class DatabaseService {
 
   Future<int> deleteSweetenerType(String id) async {
     final db = await instance.database;
-    return await db.delete('sweetener_types', where: 'id = ? AND isCustom = 1', whereArgs: [id]);
+    return await db.delete('sweetener_types',
+        where: 'id = ? AND isCustom = 1', whereArgs: [id]);
   }
-  
+
   Future<void> clearAllData() async {
     final db = await instance.database;
     await db.transaction((txn) async {
       await txn.delete('history');
       await txn.delete('batch_containers');
+      await txn.delete('batch_recipes');
       await txn.delete('batches');
       await txn.delete('recipes', where: 'isCustom = 1');
       await txn.delete('yeasts', where: 'isCustom = 1');

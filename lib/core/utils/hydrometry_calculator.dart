@@ -10,7 +10,8 @@ class HydrometryCalculator {
   /// Перевод SG в Brix
   static double sgToBrix(double sg) {
     if (sg <= 1.000) return 0.0;
-    final brix = (((182.4601 * sg - 775.6821) * sg + 1262.7794) * sg - 669.5622);
+    final brix =
+        (((182.4601 * sg - 775.6821) * sg + 1262.7794) * sg - 669.5622);
     return brix < 0 ? 0.0 : double.parse(brix.toStringAsFixed(2));
   }
 
@@ -43,16 +44,19 @@ class HydrometryCalculator {
     double targetCo2Volumes = 2.4,
     double ciderTempC = 18.0,
   }) {
-    final residualCo2 = 1.7037 - (0.0461 * ciderTempC) + (0.0005 * pow(ciderTempC, 2));
+    final residualCo2 =
+        1.7037 - (0.0461 * ciderTempC) + (0.0005 * pow(ciderTempC, 2));
     final neededCo2 = targetCo2Volumes - residualCo2;
     if (neededCo2 <= 0) return 0.0;
-    
+
     final sugarGram = neededCo2 * 4.0;
     return double.parse(sugarGram.toStringAsFixed(2));
   }
 
   /// Точный расчет крепости ABV (%) по значениям начального и конечного сахара (в г/100мл или Brix)
-  static double calculateAbvFromHydrometer(double initialSugar, double finalSugar, {double factor = 0.47}) {
+  static double calculateAbvFromHydrometer(
+      double initialSugar, double finalSugar,
+      {double factor = 0.47}) {
     if (initialSugar <= finalSugar) return 0.0;
     final ogSg = brixToSg(initialSugar);
     final fgSg = brixToSg(finalSugar);
@@ -63,7 +67,8 @@ class HydrometryCalculator {
   // --- КАЛЬКУЛЯТОРЫ ДИСТИЛЛЯЦИИ И КАЛЬВАДОСА ---
 
   /// Расчет Абсолютного Спирта (АС) в литрах
-  static double calculateAbsoluteAlcohol(double volumeLiters, double abvPercent) {
+  static double calculateAbsoluteAlcohol(
+      double volumeLiters, double abvPercent) {
     if (volumeLiters <= 0 || abvPercent <= 0) return 0.0;
     final absoluteAlcohol = volumeLiters * (abvPercent / 100.0);
     return double.parse(absoluteAlcohol.toStringAsFixed(2));
@@ -75,7 +80,8 @@ class HydrometryCalculator {
     required double currentAbv,
     required double targetAbv,
   }) {
-    if (targetAbv >= currentAbv || targetAbv <= 0 || currentVolume <= 0) return 0.0;
+    if (targetAbv >= currentAbv || targetAbv <= 0 || currentVolume <= 0)
+      return 0.0;
     final waterVolume = currentVolume * ((currentAbv - targetAbv) / targetAbv);
     return double.parse(waterVolume.toStringAsFixed(2));
   }
@@ -86,7 +92,8 @@ class HydrometryCalculator {
     required double abvPercent,
     double headsPercentage = 5.0,
   }) {
-    final absoluteAlcoholLiters = calculateAbsoluteAlcohol(volumeLiters, abvPercent);
+    final absoluteAlcoholLiters =
+        calculateAbsoluteAlcohol(volumeLiters, abvPercent);
     final headsLiters = absoluteAlcoholLiters * (headsPercentage / 100.0);
     final headsMl = headsLiters * 1000;
     return double.parse(headsMl.toStringAsFixed(0));

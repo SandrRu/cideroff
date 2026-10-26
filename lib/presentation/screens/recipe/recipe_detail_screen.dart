@@ -93,7 +93,6 @@ class RecipeDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
-          
           if (currentRecipe.getDescription(langCode).isNotEmpty) ...[
             Text(
               'Описание',
@@ -111,7 +110,6 @@ class RecipeDetailScreen extends StatelessWidget {
             const Divider(),
             const SizedBox(height: 8),
           ],
-
           Text(
             'Этапы приготовления (${currentRecipe.steps.length})',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -119,7 +117,6 @@ class RecipeDetailScreen extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 12),
-
           ...List.generate(currentRecipe.steps.length, (index) {
             final step = currentRecipe.steps[index];
             return Card(
@@ -154,7 +151,8 @@ class RecipeDetailScreen extends StatelessWidget {
                           ),
                         ),
                         Chip(
-                          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                          labelPadding:
+                              const EdgeInsets.symmetric(horizontal: 4),
                           visualDensity: VisualDensity.compact,
                           label: Text(
                             '${step.durationDays} дн.',
@@ -182,18 +180,21 @@ class RecipeDetailScreen extends StatelessWidget {
                           const Chip(
                             avatar: Icon(Icons.science_outlined, size: 14),
                             visualDensity: VisualDensity.compact,
-                            label: Text('Замер сахара', style: TextStyle(fontSize: 11)),
+                            label: Text('Замер сахара',
+                                style: TextStyle(fontSize: 11)),
                           ),
                         if (step.requiresAlcoholMeasurement)
                           const Chip(
                             avatar: Icon(Icons.local_bar_outlined, size: 14),
                             visualDensity: VisualDensity.compact,
-                            label: Text('Замер спирта', style: TextStyle(fontSize: 11)),
+                            label: Text('Замер спирта',
+                                style: TextStyle(fontSize: 11)),
                           ),
                         if (step.isBottlingStep)
                           const Chip(
                             backgroundColor: Color(0xFFE8F5E9),
-                            avatar: Icon(Icons.wine_bar_outlined, size: 14, color: Colors.green),
+                            avatar: Icon(Icons.wine_bar_outlined,
+                                size: 14, color: Colors.green),
                             visualDensity: VisualDensity.compact,
                             label: Text(
                               'Розлив / Финал',

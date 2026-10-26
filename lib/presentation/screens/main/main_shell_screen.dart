@@ -33,11 +33,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
   }
 
   final List<Widget> _screens = const [
-    DashboardScreen(),   // Вкладка 0: Дашборд
-    MainScreen(),        // Вкладка 1: Партии
-    CellarScreen(),      // Вкладка 2: Погребок (Новая вкладка)
-    CalculatorScreen(),  // Вкладка 3: Калькулятор
-    SettingsScreen(),    // Вкладка 4: Настройки
+    DashboardScreen(), // Вкладка 0: Дашборд
+    MainScreen(), // Вкладка 1: Партии
+    CellarScreen(), // Вкладка 2: Погребок (Новая вкладка)
+    CalculatorScreen(), // Вкладка 3: Калькулятор
+    SettingsScreen(), // Вкладка 4: Настройки
   ];
 
   @override

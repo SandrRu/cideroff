@@ -14,7 +14,8 @@ class CalculatorScreen extends StatefulWidget {
   State<CalculatorScreen> createState() => _CalculatorScreenState();
 }
 
-class _CalculatorScreenState extends State<CalculatorScreen> with SingleTickerProviderStateMixin {
+class _CalculatorScreenState extends State<CalculatorScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   // Поля ABV
@@ -68,7 +69,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> with SingleTickerPr
         _buildResultCard(
           title: 'Оцениваемая крепость (ABV)',
           value: '$abv % об.',
-          subtitle: 'Начальный SG: ${ogSg.toStringAsFixed(3)} | Конечный SG: ${fgSg.toStringAsFixed(3)}',
+          subtitle:
+              'Начальный SG: ${ogSg.toStringAsFixed(3)} | Конечный SG: ${fgSg.toStringAsFixed(3)}',
         ),
         const SizedBox(height: 20),
         Text('Начальный сахар: ${_ogBrix.toStringAsFixed(1)} °Brix'),
@@ -94,7 +96,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildResultCard({required String title, required String value, required String subtitle}) {
+  Widget _buildResultCard(
+      {required String title,
+      required String value,
+      required String subtitle}) {
     return Card(
       color: Colors.amber.shade100,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -102,7 +107,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> with SingleTickerPr
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Text(title, style: TextStyle(color: Colors.amber.shade900, fontSize: 14)),
+            Text(title,
+                style: TextStyle(color: Colors.amber.shade900, fontSize: 14)),
             const SizedBox(height: 8),
             Text(
               value,
@@ -137,7 +143,8 @@ class BottlingCalculatorTab extends StatefulWidget {
 class _BottlingCalculatorTabState extends State<BottlingCalculatorTab> {
   final _tareWeightController = TextEditingController();
   final _tareWithMustWeightController = TextEditingController();
-  final _carbonationDextroseController = TextEditingController(text: '7.0'); // По умолчанию 7 г/л
+  final _carbonationDextroseController =
+      TextEditingController(text: '7.0'); // По умолчанию 7 г/л
   final _desiredSweetnessController = TextEditingController();
 
   List<DrinkType> _drinkTypes = [];
@@ -201,10 +208,14 @@ class _BottlingCalculatorTabState extends State<BottlingCalculatorTab> {
   void _calculate() {
     final tareWeight = _parseDouble(_tareWeightController.text);
     final tareWithMustWeight = _parseDouble(_tareWithMustWeightController.text);
-    final carbonationRate = _parseDouble(_carbonationDextroseController.text) ?? 0.0;
-    final desiredSweetness = _parseDouble(_desiredSweetnessController.text) ?? 0.0;
+    final carbonationRate =
+        _parseDouble(_carbonationDextroseController.text) ?? 0.0;
+    final desiredSweetness =
+        _parseDouble(_desiredSweetnessController.text) ?? 0.0;
 
-    if (tareWeight == null || tareWithMustWeight == null || tareWithMustWeight <= tareWeight) {
+    if (tareWeight == null ||
+        tareWithMustWeight == null ||
+        tareWithMustWeight <= tareWeight) {
       setState(() {
         _netMustWeight = null;
         _weightWithDextrose = null;
@@ -230,7 +241,8 @@ class _BottlingCalculatorTabState extends State<BottlingCalculatorTab> {
     final weightAfterDextrose = tareWithMustWeight + dextroseAmount;
 
     final factor = _selectedSweetener?.sweetnessFactor ?? 1.0;
-    final sweetenerGramPerLiter = factor > 0 ? (desiredSweetness / factor) : 0.0;
+    final sweetenerGramPerLiter =
+        factor > 0 ? (desiredSweetness / factor) : 0.0;
     final totalSweetenerAmount = (netMust / 1000.0) * sweetenerGramPerLiter;
 
     final weightAfterSweetener = weightAfterDextrose + totalSweetenerAmount;
@@ -337,8 +349,10 @@ class _BottlingCalculatorTabState extends State<BottlingCalculatorTab> {
               if (doubleVal != null &&
                   _maxAllowedSweetness != null &&
                   doubleVal > _maxAllowedSweetness!) {
-                _desiredSweetnessController.text = _maxAllowedSweetness!.toStringAsFixed(1);
-                _desiredSweetnessController.selection = TextSelection.fromPosition(
+                _desiredSweetnessController.text =
+                    _maxAllowedSweetness!.toStringAsFixed(1);
+                _desiredSweetnessController.selection =
+                    TextSelection.fromPosition(
                   TextPosition(offset: _desiredSweetnessController.text.length),
                 );
               }
@@ -410,7 +424,8 @@ class _BottlingCalculatorTabState extends State<BottlingCalculatorTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.black87, fontSize: 13)),
+        Text(label,
+            style: const TextStyle(color: Colors.black87, fontSize: 13)),
         const SizedBox(height: 2),
         Text(
           value,

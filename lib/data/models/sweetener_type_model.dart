@@ -3,7 +3,8 @@ import 'package:uuid/uuid.dart';
 class SweetenerType {
   final String id;
   final String name;
-  final double sweetnessFactor; // Коэффициент относительно сахара (например, ксилит ~1.0, эритрит ~0.7)
+  final double
+      sweetnessFactor; // Коэффициент относительно сахара (например, ксилит ~1.0, эритрит ~0.7)
   final bool isCustom;
 
   SweetenerType({

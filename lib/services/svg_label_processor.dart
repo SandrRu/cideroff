@@ -5,9 +5,9 @@ import '../data/models/batch_container_model.dart';
 import '../data/models/drink_type_model.dart';
 
 class SvgLabelProcessor {
-
   /// Определяет название типа сладости по итоговой плотности подпартии
-  static String getSweetnessCategory(double finalSugarGramsPer100ml, List<DrinkType>? drinkTypes) {
+  static String getSweetnessCategory(
+      double finalSugarGramsPer100ml, List<DrinkType>? drinkTypes) {
     final sugarGramsPerLiter = finalSugarGramsPer100ml * 10.0;
 
     if (drinkTypes != null && drinkTypes.isNotEmpty) {
@@ -18,7 +18,7 @@ class SvgLabelProcessor {
         }
       }
     }
-    
+
     // Базовый fallback, если список пуст или сахар вышел за пределы пользовательских DrinkType
     if (sugarGramsPerLiter <= 15.0) {
       return 'Сухой';
@@ -29,31 +29,41 @@ class SvgLabelProcessor {
     } else {
       return 'Сладкий';
     }
-  }  
-  
+  }
+
   static String injectData({
     required String rawSvg,
     required Batch batch,
     required BatchContainer container,
+    DateTime? bottlingDate,
     String? yeastName,
-    List<DrinkType>? drinkTypes,    
+    List<DrinkType>? drinkTypes,
   }) {
     final dateFormat = DateFormat('dd.MM.yyyy');
-    
+
     // Расчет параметров подпартии
-    final finalSugar = container.getCalculatedFinalSugar(batch.finalSugar ?? 0.0);
-    final abvText = batch.finalAlcohol != null ? '${batch.finalAlcohol!.toStringAsFixed(1)}%' : '0.0%';
+    final finalSugar =
+        container.getCalculatedFinalSugar(batch.finalSugar ?? 0.0);
+    final abvText = batch.finalAlcohol != null
+        ? '${batch.finalAlcohol!.toStringAsFixed(1)}%'
+        : '0.0%';
     final sweetnessCategory = getSweetnessCategory(finalSugar, drinkTypes);
-    
+
     String sweetenerInfo = 'Без подсластителя';
-    if (container.sweetenerType != null && container.sweetenerAmountGramsPerLiter > 0) {
-      sweetenerInfo = '${container.sweetenerType}: ${container.sweetenerAmountGramsPerLiter} г/л';
+    if (container.sweetenerType != null &&
+        container.sweetenerAmountGramsPerLiter > 0) {
+      sweetenerInfo =
+          '${container.sweetenerType}: ${container.sweetenerAmountGramsPerLiter} г/л';
     }
 
     final formattedPressDate = dateFormat.format(batch.pressDate);
-    final formattedBottlingDate = dateFormat.format(DateTime.now());
+    // Дата розлива НЕ должна быть текущей датой: этикетку могут печатать позже.
+    // Если вызывающий код её не передал — берём плановую дату розлива, затем отжим.
+    final formattedBottlingDate = dateFormat.format(
+      bottlingDate ?? batch.nextStepDate ?? batch.pressDate,
+    );
     final sugarText = '${finalSugar.toStringAsFixed(1)} г/100мл';
-    final notesText = batch.notes ?? '';
+    final notesText = batch.notes;
     final yeast = yeastName ?? '—';
 
     // Расширенная карта замен (поддерживает ВСЕ вариации регистра и названий)
@@ -127,7 +137,7 @@ class SvgLabelProcessor {
     return processedSvg;
   }
 
-  /// Находит плейсхолдеры {{...}}, которые разбиты <tspan> или содержат лишние пробелы/переносы
+  /// Находит плейсхолдеры `{{...}}`, которые разбиты `<tspan>` или содержат лишние пробелы/переносы
   static String _normalizePlaceholdersInSvg(String svgContent) {
     // Регулярное выражение для поиска всех фигурных скобок {{ ... }}
     final brokenPlaceholderRegex = RegExp(
@@ -139,8 +149,9 @@ class SvgLabelProcessor {
       String matchedText = match.group(0)!;
 
       // Удаляем теги tspan/xml внутри фигурных скобок
-      matchedText = matchedText.replaceAll(RegExp(r'</?[^>]+>', caseSensitive: false), '');
-      
+      matchedText = matchedText.replaceAll(
+          RegExp(r'</?[^>]+>', caseSensitive: false), '');
+
       // Нормализуем пробельные символы внутри {{ ... }} до одного пробела
       matchedText = matchedText.replaceAll(RegExp(r'\s+'), ' ');
 

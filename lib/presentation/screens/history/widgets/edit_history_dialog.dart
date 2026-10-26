@@ -145,7 +145,8 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
               children: [
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.grey.shade600),
@@ -155,7 +156,8 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                     children: [
                       Text(
                         'Название шага',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade400),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -169,10 +171,10 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                   ),
                 ),
                 const SizedBox(height: 12),
-
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.grey.shade600),
@@ -182,7 +184,8 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                     children: [
                       Text(
                         'Действие / Статус',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade400),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -197,12 +200,12 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                   ),
                 ),
                 const SizedBox(height: 12),
-
                 InkWell(
                   borderRadius: BorderRadius.circular(8),
                   onTap: () => _pickDateTime(context),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey.shade600),
                       borderRadius: BorderRadius.circular(8),
@@ -212,24 +215,27 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.calendar_today, size: 18, color: Colors.amber),
+                            const Icon(Icons.calendar_today,
+                                size: 18, color: Colors.amber),
                             const SizedBox(width: 10),
                             Text(
                               'Дата: ${dateFormat.format(_selectedTimestamp)}',
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 14),
                             ),
                           ],
                         ),
-                        const Icon(Icons.edit_calendar, size: 18, color: Colors.grey),
+                        const Icon(Icons.edit_calendar,
+                            size: 18, color: Colors.grey),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 12),
-
                 if (isFirstStep) ...[
                   DropdownButtonFormField<String?>(
-                    value: yeastProvider.yeasts.any((y) => y.id == _selectedYeastId)
+                    value: yeastProvider.yeasts
+                            .any((y) => y.id == _selectedYeastId)
                         ? _selectedYeastId
                         : null,
                     decoration: const InputDecoration(
@@ -257,11 +263,11 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                   ),
                   const SizedBox(height: 12),
                 ],
-
                 if (showSugar) ...[
                   TextFormField(
                     controller: _sugarController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
                       labelText: 'Замер сахара (г/100мл)',
                       border: OutlineInputBorder(),
@@ -269,11 +275,11 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                   ),
                   const SizedBox(height: 12),
                 ],
-
                 if (showAlcohol) ...[
                   TextFormField(
                     controller: _alcoholController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
                       labelText: 'Крепость (% об.)',
                       border: OutlineInputBorder(),
@@ -281,7 +287,6 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                   ),
                   const SizedBox(height: 12),
                 ],
-
                 if (isBottling) ...[
                   ContainersInlineList(
                     batchId: widget.history.batchId,
@@ -295,7 +300,6 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                   ),
                   const SizedBox(height: 12),
                 ],
-
                 TextFormField(
                   controller: _noteController,
                   maxLines: 2,
@@ -327,11 +331,19 @@ class _EditHistoryDialogState extends State<EditHistoryDialog> {
                 timestamp: _selectedTimestamp,
                 stepTitle: widget.history.stepTitle,
                 actionName: widget.history.actionName,
-                sugarMeasured: showSugar ? _parseDouble(_sugarController.text) : widget.history.sugarMeasured,
-                alcoholMeasured: showAlcohol ? _parseDouble(_alcoholController.text) : widget.history.alcoholMeasured,
-                nonFermentableSugarGrams: widget.history.nonFermentableSugarGrams,
-                containers: isBottling ? _draftContainers : widget.history.containers,
-                note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+                sugarMeasured: showSugar
+                    ? _parseDouble(_sugarController.text)
+                    : widget.history.sugarMeasured,
+                alcoholMeasured: showAlcohol
+                    ? _parseDouble(_alcoholController.text)
+                    : widget.history.alcoholMeasured,
+                nonFermentableSugarGrams:
+                    widget.history.nonFermentableSugarGrams,
+                containers:
+                    isBottling ? _draftContainers : widget.history.containers,
+                note: _noteController.text.trim().isEmpty
+                    ? null
+                    : _noteController.text.trim(),
               );
 
               Navigator.pop(

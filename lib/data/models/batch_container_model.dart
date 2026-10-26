@@ -3,12 +3,14 @@ import 'package:uuid/uuid.dart';
 class BatchContainer {
   final String id;
   final String batchId;
-  final String title;                    // Название подпартии / тары (напр. "Сухой бугель", "Сладкий кег")
-  final String? sweetenerType;            // Тип подсластителя (Ксилит, Эритрит, Сорбитол, Сок и т.д.)
+  final String
+      title; // Название подпартии / тары (напр. "Сухой бугель", "Сладкий кег")
+  final String?
+      sweetenerType; // Тип подсластителя (Ксилит, Эритрит, Сорбитол, Сок и т.д.)
   final double sweetenerAmountGramsPerLiter; // Количество подсластителя (г/л)
-  final String containerType;            // Тип тары (Бугель, Кронен, ПЭТ, Кег)
-  final double containerVolumeLiters;    // Объем одной емкости (л)
-  final int count;                       // Количество емкостей (шт)
+  final String containerType; // Тип тары (Бугель, Кронен, ПЭТ, Кег)
+  final double containerVolumeLiters; // Объем одной емкости (л)
+  final int count; // Количество емкостей (шт)
 
   BatchContainer({
     String? id,

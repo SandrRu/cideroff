@@ -84,7 +84,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     }
   }
 
-  /// Шаг 1: Окно выбора подпартии
   void _startLabelGenerationProcess(BuildContext context, Batch batch) {
     if (batch.containers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -132,7 +131,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     );
   }
 
-  /// Шаг 2: Окно выбора макета этикетки
   void _selectLabelTemplate(
     BuildContext context,
     Batch batch,
@@ -146,6 +144,73 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
           selectedContainer: selectedContainer,
         ),
       ),
+    );
+  }
+
+  /// Динамическое модальное окно добавления дополнительного рецепта/этапа к партии
+  void _showAddRecipeDialog(BuildContext context, Batch batch,
+      List<Recipe> allRecipes, String langCode) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          maxChildSize: 0.9,
+          builder: (_, controller) {
+            return Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    'Привязать следующий этап / рецепт',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView.builder(
+                    controller: controller,
+                    itemCount: allRecipes.length,
+                    itemBuilder: (context, index) {
+                      final recipe = allRecipes[index];
+                      return ListTile(
+                        leading: Icon(
+                          recipe.isCustom ? Icons.extension : Icons.alt_route,
+                          color: Colors.amber.shade800,
+                        ),
+                        title: Text(recipe.getTitle(langCode)),
+                        subtitle: Text('${recipe.steps.length} шагов'),
+                        onTap: () async {
+                          Navigator.of(ctx).pop();
+                          final batchProvider = context.read<BatchProvider>();
+                          final existingLinks = await batchProvider
+                              .getRecipeLinksForBatch(batch.id);
+
+                          await batchProvider.attachRecipeToBatch(
+                            batchId: batch.id,
+                            recipe: recipe,
+                            sequenceOrder: existingLinks.length + 1,
+                          );
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(
+                                      'Рецепт "${recipe.getTitle(langCode)}" успешно добавлен к партии')),
+                            );
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -172,10 +237,13 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     final nameEditController = TextEditingController(text: batch.name);
     final notesEditController = TextEditingController(text: batch.notes);
     final rawSpiritVolumeEdit = TextEditingController(
-        text: batch.rawSpiritVolume != null ? batch.rawSpiritVolume.toString() : '');
+        text: batch.rawSpiritVolume != null
+            ? batch.rawSpiritVolume.toString()
+            : '');
     final rawSpiritAbvEdit = TextEditingController(
         text: batch.rawSpiritABV != null ? batch.rawSpiritABV.toString() : '');
-    final barrelNotesEdit = TextEditingController(text: batch.barrelNotes ?? '');
+    final barrelNotesEdit =
+        TextEditingController(text: batch.barrelNotes ?? '');
 
     showDialog(
       context: context,
@@ -209,7 +277,8 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                       Expanded(
                         child: TextField(
                           controller: rawSpiritVolumeEdit,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
                           decoration: const InputDecoration(
                             labelText: 'Спирт-сырец (л)',
                             border: OutlineInputBorder(),
@@ -220,7 +289,8 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                       Expanded(
                         child: TextField(
                           controller: rawSpiritAbvEdit,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
                           decoration: const InputDecoration(
                             labelText: 'Крепость СС (%)',
                             border: OutlineInputBorder(),
@@ -325,8 +395,11 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     final batchProvider = context.watch<BatchProvider>();
     final recipeProvider = context.watch<RecipeProvider>();
     final yeastProvider = context.watch<YeastProvider>();
+    final langCode = Localizations.localeOf(context).languageCode;
 
-    if (recipeProvider.isLoading || batchProvider.isLoading || yeastProvider.isLoading) {
+    if (recipeProvider.isLoading ||
+        batchProvider.isLoading ||
+        yeastProvider.isLoading) {
       return Scaffold(
         appBar: AppBar(title: const Text('Партия')),
         body: const Center(child: CircularProgressIndicator()),
@@ -356,7 +429,9 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
 
     Recipe? currentRecipe;
     if (batch.currentRecipeId != null && recipeProvider.recipes.isNotEmpty) {
-      final matches = recipeProvider.recipes.where((r) => r.id == batch.currentRecipeId).toList();
+      final matches = recipeProvider.recipes
+          .where((r) => r.id == batch.currentRecipeId)
+          .toList();
       if (matches.isNotEmpty) {
         currentRecipe = matches.first;
       }
@@ -364,7 +439,8 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
 
     currentRecipe ??= recipeProvider.recipes.firstWhere(
       (r) {
-        final isCalvados = r.id.contains('calvados') || (r.title['ru'] ?? '').toLowerCase().contains('кальвадос');
+        final isCalvados = r.id.contains('calvados') ||
+            (r.title['ru'] ?? '').toLowerCase().contains('кальвадос');
         return batch.type == BatchType.calvados ? isCalvados : !isCalvados;
       },
       orElse: () => recipeProvider.recipes.isNotEmpty
@@ -377,7 +453,8 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     );
 
     final stepIndex = batch.currentStepIndex ?? 0;
-    final currentStep = (currentRecipe.steps.isNotEmpty && stepIndex < currentRecipe.steps.length)
+    final currentStep = (currentRecipe.steps.isNotEmpty &&
+            stepIndex < currentRecipe.steps.length)
         ? currentRecipe.steps[stepIndex]
         : null;
 
@@ -444,14 +521,19 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _infoRow('Тип напитка', batch.type == BatchType.calvados ? 'Кальвадос' : 'Сидр'),
+                    _infoRow(
+                        'Тип напитка',
+                        batch.type == BatchType.calvados
+                            ? 'Кальвадос'
+                            : 'Сидр'),
                     _infoRow('Сорт яблок', batch.appleVariety),
                     _infoRow('Объём сока', '${batch.juiceVolume} л'),
-                    _infoRow('Начальный сахар', '${batch.initialSugar} г/100мл'),
+                    _infoRow(
+                        'Начальный сахар', '${batch.initialSugar} г/100мл'),
                     if (currentYeastName != null)
                       _infoRow('Дрожжи', currentYeastName),
-                    _infoRow('Дата запуска', dateFormat.format(batch.pressDate)),
-
+                    _infoRow(
+                        'Дата запуска', dateFormat.format(batch.pressDate)),
                     if (batch.type == BatchType.calvados) ...[
                       const Divider(),
                       if (batch.rawSpiritVolume != null)
@@ -464,42 +546,48 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                           'Дистиллят (Сердце)',
                           '${batch.distillateVolume} л (${batch.distillateABV ?? 0}% об.)',
                         ),
-                      if (batch.barrelNotes != null && batch.barrelNotes!.isNotEmpty)
+                      if (batch.barrelNotes != null &&
+                          batch.barrelNotes!.isNotEmpty)
                         _infoRow('Выдержка', batch.barrelNotes!),
                       if (batch.daysInAging != null)
                         _infoRow('Срок выдержки', '${batch.daysInAging} дн.'),
                     ],
-
                     if (batch.notes.isNotEmpty)
                       _infoRow('Заметка', batch.notes),
-                    if (batch.containerType != null && batch.containerType!.isNotEmpty)
+                    if (batch.containerType != null &&
+                        batch.containerType!.isNotEmpty)
                       _infoRow(
                         'Тара',
                         '${batch.containerType} (${batch.containerCount ?? 0} шт.)',
                       ),
-                    if (batch.status == BatchStatus.completed || batch.containers.isNotEmpty) ...[
+                    if (batch.status == BatchStatus.completed ||
+                        batch.containers.isNotEmpty) ...[
                       const Divider(),
                       if (batch.finalSugar != null)
-                        _infoRow('Остаточный сахар', '${batch.finalSugar ?? 0} г/100мл'),
-                      if (batch.primingSugarGrams != null && batch.primingSugarGrams! > 0)
+                        _infoRow('Остаточный сахар',
+                            '${batch.finalSugar ?? 0} г/100мл'),
+                      if (batch.primingSugarGrams != null &&
+                          batch.primingSugarGrams! > 0)
                         _infoRow('Декстроза', '${batch.primingSugarGrams} г/л'),
                       if (batch.finalAlcohol != null)
                         _infoRow('Крепость', '${batch.finalAlcohol ?? 0}% об.'),
                       if (batch.lossVolume != null)
-                        _infoRow('Осадок / Потери', '${batch.lossVolume!.toStringAsFixed(1)} л'),
-                      
+                        _infoRow('Осадок / Потери',
+                            '${batch.lossVolume!.toStringAsFixed(1)} л'),
                       if (batch.containers.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         const Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
                             'Разлитые подпартии:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                         ),
                         const SizedBox(height: 4),
                         ...batch.containers.map((c) {
-                          final hasSweetener = c.sweetenerType != null && c.sweetenerAmountGramsPerLiter > 0;
+                          final hasSweetener = c.sweetenerType != null &&
+                              c.sweetenerAmountGramsPerLiter > 0;
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             child: Row(
@@ -515,7 +603,9 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                 ),
                                 Text(
                                   '${c.count} шт. × ${c.containerVolumeLiters}л (${c.totalVolumeLiters.toStringAsFixed(1)}л)',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -524,7 +614,8 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                       ],
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
-                        onPressed: () => _startLabelGenerationProcess(context, batch),
+                        onPressed: () =>
+                            _startLabelGenerationProcess(context, batch),
                         icon: const Icon(Icons.label_outlined),
                         label: const Text('Сформировать этикетку'),
                       ),
@@ -533,9 +624,88 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+
+            // Блок просмотра и добавления цепочки рецептов партии
+            FutureBuilder<List<Recipe>>(
+              future: batchProvider.getRecipesForBatch(batch.id),
+              builder: (context, snapshot) {
+                final recipes = snapshot.data ?? [currentRecipe!];
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Цепочка рецептов партии',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            TextButton.icon(
+                              onPressed: () => _showAddRecipeDialog(context,
+                                  batch, recipeProvider.recipes, langCode),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Добавить этап'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        ...recipes.asMap().entries.map((entry) {
+                          final idx = entry.key;
+                          final r = entry.value;
+                          final isCurrent = r.id == batch.currentRecipeId;
+
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              radius: 12,
+                              backgroundColor: isCurrent
+                                  ? Colors.amber
+                                  : Colors.grey.shade300,
+                              child: Text(
+                                '${idx + 1}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isCurrent
+                                      ? Colors.black
+                                      : Colors.grey.shade800,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              r.getTitle(langCode),
+                              style: TextStyle(
+                                fontWeight: isCurrent
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            subtitle: Text('${r.steps.length} шагов'),
+                            trailing: isCurrent
+                                ? const Chip(
+                                    label: Text('Активный',
+                                        style: TextStyle(fontSize: 10)),
+                                    padding: EdgeInsets.zero,
+                                    backgroundColor: Colors.amber,
+                                  )
+                                : null,
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 20),
 
-            if (batch.status == BatchStatus.inProgress && currentStep != null) ...[
+            if (batch.status == BatchStatus.inProgress &&
+                currentStep != null) ...[
               Text(
                 'Шаг ${(batch.currentStepIndex ?? 0) + 1}: ${currentStep.getTitle('ru')}',
                 style: Theme.of(context)
@@ -549,7 +719,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                 style: TextStyle(color: Colors.grey.shade700),
               ),
               const SizedBox(height: 12),
-
               Theme(
                 data: Theme.of(context).copyWith(
                   brightness: Brightness.light,
@@ -581,7 +750,8 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.timer_outlined, color: Colors.amber),
+                                const Icon(Icons.timer_outlined,
+                                    color: Colors.amber),
                                 const SizedBox(width: 8),
                                 Text(
                                   batch.nextStepDate != null
@@ -595,7 +765,8 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                               ],
                             ),
                             IconButton(
-                              icon: const Icon(Icons.calculate_outlined, color: Colors.amber),
+                              icon: const Icon(Icons.calculate_outlined,
+                                  color: Colors.amber),
                               tooltip: 'Открыть калькулятор',
                               onPressed: () => _showHydrometrySheet(
                                 context,
@@ -606,12 +777,12 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-
                         InkWell(
                           onTap: () => _selectStepDate(context),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               border: Border.all(color: Colors.amber.shade400),
                               borderRadius: BorderRadius.circular(8),
@@ -622,7 +793,8 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.calendar_today, size: 18, color: Colors.amber),
+                                    const Icon(Icons.calendar_today,
+                                        size: 18, color: Colors.amber),
                                     const SizedBox(width: 10),
                                     Text(
                                       'Дата выполнения: ${dateFormat.format(_selectedStepDate)}',
@@ -634,22 +806,24 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                     ),
                                   ],
                                 ),
-                                const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                                const Icon(Icons.arrow_drop_down,
+                                    color: Colors.black54),
                               ],
                             ),
                           ),
                         ),
                         const SizedBox(height: 16),
-
                         if (stepIndex == 0) ...[
                           DropdownButtonFormField<String?>(
-                            value: yeastProvider.yeasts.any((y) => y.id == _selectedYeastId)
+                            value: yeastProvider.yeasts
+                                    .any((y) => y.id == _selectedYeastId)
                                 ? _selectedYeastId
                                 : null,
                             decoration: const InputDecoration(
                               labelText: 'Выберите штамм дрожжей',
                               border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.grain, color: Colors.amber),
+                              prefixIcon:
+                                  Icon(Icons.grain, color: Colors.amber),
                             ),
                             items: [
                               const DropdownMenuItem<String?>(
@@ -671,17 +845,18 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                           ),
                           const SizedBox(height: 12),
                         ],
-
                         if (currentStep.requiresSugarMeasurement) ...[
                           TextField(
                             controller: _sugarController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                             style: const TextStyle(color: Colors.black87),
                             decoration: InputDecoration(
                               labelText: 'Замер сахара (г/100мл)',
                               border: const OutlineInputBorder(),
                               suffixIcon: IconButton(
-                                icon: const Icon(Icons.sync, color: Colors.amber),
+                                icon:
+                                    const Icon(Icons.sync, color: Colors.amber),
                                 onPressed: () => _recalculateAbv(batch),
                               ),
                             ),
@@ -689,11 +864,11 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                           ),
                           const SizedBox(height: 12),
                         ],
-
                         if (currentStep.requiresAlcoholMeasurement) ...[
                           TextField(
                             controller: _alcoholController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                             style: const TextStyle(color: Colors.black87),
                             decoration: InputDecoration(
                               labelText: 'Крепость (% об.)',
@@ -705,11 +880,11 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                           ),
                           const SizedBox(height: 12),
                         ],
-
                         if (currentStep.isBottlingStep) ...[
                           TextField(
                             controller: _primingSugarController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                             style: const TextStyle(color: Colors.black87),
                             decoration: const InputDecoration(
                               labelText: 'Катализатор / Декстроза (г/л)',
@@ -718,7 +893,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-
                           ContainersInlineList(
                             batchId: batch.id,
                             totalJuiceVolume: batch.juiceVolume,
@@ -731,7 +905,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                           ),
                           const SizedBox(height: 12),
                         ],
-
                         TextField(
                           controller: _noteController,
                           maxLines: 2,
@@ -742,7 +915,6 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-
                         SizedBox(
                           width: double.infinity,
                           height: 48,
@@ -758,19 +930,29 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                       _isSubmitting = true;
                                     });
 
-                                    final baseSugar = _parseDouble(_sugarController.text);
-                                    final primingGrams = _parseDouble(_primingSugarController.text) ?? 0.0;
+                                    final baseSugar =
+                                        _parseDouble(_sugarController.text);
+                                    final primingGrams = _parseDouble(
+                                            _primingSugarController.text) ??
+                                        0.0;
 
                                     try {
-                                      if (stepIndex == 0 && _selectedYeastId != batch.yeastId) {
-                                        final updatedYeastBatch = batch.copyWith(yeastId: _selectedYeastId);
-                                        await batchProvider.updateBatch(updatedYeastBatch);
+                                      if (stepIndex == 0 &&
+                                          _selectedYeastId != batch.yeastId) {
+                                        final updatedYeastBatch =
+                                            batch.copyWith(
+                                                yeastId: _selectedYeastId);
+                                        await batchProvider
+                                            .updateBatch(updatedYeastBatch);
                                       }
 
-                                      String stepNote = _noteController.text.trim();
-                                      if (currentStep.isBottlingStep && _draftContainers.isNotEmpty) {
+                                      String stepNote =
+                                          _noteController.text.trim();
+                                      if (currentStep.isBottlingStep &&
+                                          _draftContainers.isNotEmpty) {
                                         final containerDetails = _draftContainers
-                                            .map((c) => '${c.title} (${c.containerType}, ${c.count} шт × ${c.containerVolumeLiters}л)')
+                                            .map((c) =>
+                                                '${c.title} (${c.containerType}, ${c.count} шт × ${c.containerVolumeLiters}л)')
                                             .join('; ');
                                         stepNote = stepNote.isEmpty
                                             ? 'Разлито по подпартиям: $containerDetails'
@@ -781,9 +963,12 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                         batch: batch,
                                         recipe: currentRecipe!,
                                         sugarMeasured: baseSugar,
-                                        alcoholMeasured: _parseDouble(_alcoholController.text),
+                                        alcoholMeasured: _parseDouble(
+                                            _alcoholController.text),
                                         note: stepNote,
-                                        containers: currentStep.isBottlingStep ? _draftContainers : const [],
+                                        containers: currentStep.isBottlingStep
+                                            ? _draftContainers
+                                            : const [],
                                         stepDate: _selectedStepDate,
                                         primingSugarGrams: primingGrams,
                                         finalSugarWithPriming: baseSugar,
@@ -791,8 +976,11 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
 
                                       if (!mounted) return;
 
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Шаг успешно завершён')),
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content:
+                                                Text('Шаг успешно завершён')),
                                       );
                                     } finally {
                                       if (mounted) {
@@ -806,7 +994,8 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
                                 ? const SizedBox(
                                     width: 20,
                                     height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.black),
                                   )
                                 : const Icon(Icons.check_circle_outline),
                             label: Text(currentStep.isBottlingStep
@@ -826,8 +1015,10 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
     );
   }
 
-  void _showHydrometrySheet(BuildContext context, Batch batch, {bool isBottlingStep = false}) {
-    final currentSugar = _parseDouble(_sugarController.text) ?? batch.initialSugar;
+  void _showHydrometrySheet(BuildContext context, Batch batch,
+      {bool isBottlingStep = false}) {
+    final currentSugar =
+        _parseDouble(_sugarController.text) ?? batch.initialSugar;
     final primingGrams = _parseDouble(_primingSugarController.text) ?? 0.0;
 
     showModalBottomSheet(
@@ -857,9 +1048,11 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
               ),
               const SizedBox(height: 12),
               ListTile(
-                leading: const Icon(Icons.science_outlined, color: Colors.amber),
+                leading:
+                    const Icon(Icons.science_outlined, color: Colors.amber),
                 title: const Text('Применить авторасчёт ABV'),
-                subtitle: Text('Начальный сахар: ${batch.initialSugar} г/100мл'),
+                subtitle:
+                    Text('Начальный сахар: ${batch.initialSugar} г/100мл'),
                 onTap: () {
                   _recalculateAbv(batch);
                   Navigator.pop(context);
@@ -868,7 +1061,8 @@ class _BatchDetailScreenState extends State<BatchDetailScreen> {
               if (isBottlingStep) ...[
                 const Divider(),
                 ListTile(
-                  leading: const Icon(Icons.scale_outlined, color: Colors.amber),
+                  leading:
+                      const Icon(Icons.scale_outlined, color: Colors.amber),
                   title: const Text('Рассчётная сладость розлива'),
                   subtitle: Text(
                     'Замер сахара: ${currentSugar.toStringAsFixed(1)} г/100мл\n'

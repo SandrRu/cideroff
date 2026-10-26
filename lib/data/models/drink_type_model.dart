@@ -25,8 +25,10 @@ class DrinkType {
     return DrinkType(
       id: id ?? this.id,
       name: name ?? this.name,
-      minSugarGramsPerLiter: minSugarGramsPerLiter ?? this.minSugarGramsPerLiter,
-      maxSugarGramsPerLiter: maxSugarGramsPerLiter ?? this.maxSugarGramsPerLiter,
+      minSugarGramsPerLiter:
+          minSugarGramsPerLiter ?? this.minSugarGramsPerLiter,
+      maxSugarGramsPerLiter:
+          maxSugarGramsPerLiter ?? this.maxSugarGramsPerLiter,
       isCustom: isCustom ?? this.isCustom,
     );
   }
@@ -42,8 +44,10 @@ class DrinkType {
   factory DrinkType.fromJson(Map<String, dynamic> json) => DrinkType(
         id: json['id'] as String,
         name: json['name'] as String? ?? '',
-        minSugarGramsPerLiter: (json['minSugarGramsPerLiter'] as num?)?.toDouble() ?? 0.0,
-        maxSugarGramsPerLiter: (json['maxSugarGramsPerLiter'] as num?)?.toDouble() ?? 0.0,
+        minSugarGramsPerLiter:
+            (json['minSugarGramsPerLiter'] as num?)?.toDouble() ?? 0.0,
+        maxSugarGramsPerLiter:
+            (json['maxSugarGramsPerLiter'] as num?)?.toDouble() ?? 0.0,
         isCustom: (json['isCustom'] as int? ?? 0) == 1,
       );
 }

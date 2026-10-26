@@ -30,7 +30,9 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
 
   BatchType _selectedType = BatchType.cider;
   DateTime _pressDate = DateTime.now();
-  Recipe? _selectedRecipe;
+
+  // Список выбранных рецептов/этапов
+  final List<Recipe> _selectedRecipes = [];
 
   @override
   void dispose() {
@@ -52,6 +54,65 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
     return double.tryParse(cleaned);
   }
 
+  void _showAddRecipeBottomSheet(List<Recipe> allRecipes, String langCode) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          maxChildSize: 0.9,
+          builder: (_, controller) {
+            return Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    'Выберите рецепт или этап',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView.builder(
+                    controller: controller,
+                    itemCount: allRecipes.length,
+                    itemBuilder: (context, index) {
+                      final recipe = allRecipes[index];
+                      final isSelected = _selectedRecipes.contains(recipe);
+
+                      return ListTile(
+                        leading: Icon(
+                          recipe.isCustom ? Icons.extension : Icons.menu_book,
+                          color: Colors.amber.shade800,
+                        ),
+                        title: Text(recipe.getTitle(langCode)),
+                        subtitle: Text('${recipe.steps.length} шагов'),
+                        trailing: isSelected
+                            ? const Icon(Icons.check_circle,
+                                color: Colors.green)
+                            : const Icon(Icons.add_circle_outline),
+                        onTap: () {
+                          setState(() {
+                            if (!isSelected) {
+                              _selectedRecipes.add(recipe);
+                            }
+                          });
+                          Navigator.of(ctx).pop();
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final recipeProvider = context.watch<RecipeProvider>();
@@ -59,12 +120,18 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
     final langCode = Localizations.localeOf(context).languageCode;
     final dateFormat = DateFormat('dd.MM.yyyy');
 
-    // Фильтрация рецептов по выбранному типу напитка
-    final filteredRecipes = allRecipes.where((recipe) {
-      final isCalvadosRecipe = recipe.id.contains('calvados') ||
-          (recipe.title['ru'] ?? '').toLowerCase().contains('кальвадос');
-      return _selectedType == BatchType.calvados ? isCalvadosRecipe : !isCalvadosRecipe;
-    }).toList();
+    // Автоматический первичный выбор стартового рецепта по умолчанию, если список еще пуст
+    if (_selectedRecipes.isEmpty && allRecipes.isNotEmpty) {
+      final defaultRecipe = allRecipes.firstWhere(
+        (r) => _selectedType == BatchType.calvados
+            ? (r.id.contains('calvados') ||
+                r.getTitle('ru').toLowerCase().contains('кальвадос'))
+            : (!r.id.contains('calvados') &&
+                !r.getTitle('ru').toLowerCase().contains('кальвадос')),
+        orElse: () => allRecipes.first,
+      );
+      _selectedRecipes.add(defaultRecipe);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -92,15 +159,6 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                 onSelectionChanged: (newSelection) {
                   setState(() {
                     _selectedType = newSelection.first;
-
-                    // Получаем обновленный список под новый тип и сбрасываем рецепт
-                    final newFiltered = allRecipes.where((recipe) {
-                      final isCalvadosRecipe = recipe.id.contains('calvados') ||
-                          (recipe.title['ru'] ?? '').toLowerCase().contains('кальвадос');
-                      return _selectedType == BatchType.calvados ? isCalvadosRecipe : !isCalvadosRecipe;
-                    }).toList();
-
-                    _selectedRecipe = newFiltered.isNotEmpty ? newFiltered.first : null;
                   });
                 },
               ),
@@ -117,8 +175,9 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                     : 'Например: Кальвадос Бочка №1',
                 border: const OutlineInputBorder(),
               ),
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Введите название партии' : null,
+              validator: (v) => v == null || v.trim().isEmpty
+                  ? 'Введите название партии'
+                  : null,
             ),
             const SizedBox(height: 16),
 
@@ -135,25 +194,86 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Выбор рецепта (только отфильтрованные)
-            DropdownButtonFormField<Recipe>(
-              value: filteredRecipes.contains(_selectedRecipe) ? _selectedRecipe : null,
-              decoration: const InputDecoration(
-                labelText: 'Рецепт приготовления',
-                border: OutlineInputBorder(),
+            // Блок гибкого выбора рецептов / технологических карт
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: Colors.grey.shade400),
+                borderRadius: BorderRadius.circular(8),
               ),
-              items: filteredRecipes.map((recipe) {
-                return DropdownMenuItem<Recipe>(
-                  value: recipe,
-                  child: Text(recipe.getTitle(langCode)),
-                );
-              }).toList(),
-              onChanged: (recipe) {
-                setState(() {
-                  _selectedRecipe = recipe;
-                });
-              },
-              validator: (v) => v == null ? 'Выберите рецепт' : null,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Рецепты и технологические этапы',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        TextButton.icon(
+                          onPressed: () =>
+                              _showAddRecipeBottomSheet(allRecipes, langCode),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Добавить'),
+                        ),
+                      ],
+                    ),
+                    if (_selectedRecipes.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text(
+                          'Выберите хотя бы один рецепт для партии',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      )
+                    else
+                      ReorderableListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _selectedRecipes.length,
+                        onReorder: (oldIndex, newIndex) {
+                          setState(() {
+                            if (newIndex > oldIndex) newIndex -= 1;
+                            final item = _selectedRecipes.removeAt(oldIndex);
+                            _selectedRecipes.insert(newIndex, item);
+                          });
+                        },
+                        itemBuilder: (context, index) {
+                          final recipe = _selectedRecipes[index];
+                          return ListTile(
+                            key: ValueKey('${recipe.id}_$index'),
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              radius: 12,
+                              backgroundColor: Colors.amber,
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                    fontSize: 12, color: Colors.black),
+                              ),
+                            ),
+                            title: Text(recipe.getTitle(langCode)),
+                            subtitle: Text('${recipe.steps.length} шагов'),
+                            trailing: _selectedRecipes.length > 1
+                                ? IconButton(
+                                    icon: const Icon(Icons.close, size: 18),
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedRecipes.removeAt(index);
+                                      });
+                                    },
+                                  )
+                                : const Icon(Icons.drag_handle),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -163,7 +283,8 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                 Expanded(
                   child: TextFormField(
                     controller: _volumeController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
                       labelText: 'Объём сока (л)',
                       border: OutlineInputBorder(),
@@ -179,7 +300,8 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                 Expanded(
                   child: TextFormField(
                     controller: _initialSugarController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
                       labelText: 'Нач. сахар (г/100мл)',
                       border: OutlineInputBorder(),
@@ -214,7 +336,9 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                           Expanded(
                             child: TextFormField(
                               controller: _rawSpiritVolumeController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
                               decoration: const InputDecoration(
                                 labelText: 'Объём СС (л)',
                                 border: OutlineInputBorder(),
@@ -225,7 +349,9 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                           Expanded(
                             child: TextFormField(
                               controller: _rawSpiritAbvController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
                               decoration: const InputDecoration(
                                 labelText: 'Крепость СС (% об.)',
                                 border: OutlineInputBorder(),
@@ -313,9 +439,18 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
 
   void _submit() async {
     if (_formKey.currentState!.validate()) {
+      if (_selectedRecipes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Выберите хотя бы один рецепт')),
+        );
+        return;
+      }
+
       final batchProvider = context.read<BatchProvider>();
       final navigator = Navigator.of(context);
       final messenger = ScaffoldMessenger.of(context);
+
+      final primaryRecipe = _selectedRecipes.first;
 
       await batchProvider.createBatch(
         name: _nameController.text.trim(),
@@ -323,7 +458,7 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
         initialSugar: _parseDouble(_initialSugarController.text) ?? 0.0,
         juiceVolume: _parseDouble(_volumeController.text)!,
         pressDate: _pressDate,
-        recipe: _selectedRecipe!,
+        recipe: primaryRecipe,
         notes: _notesController.text.trim(),
         type: _selectedType,
         yeastId: null,
@@ -331,6 +466,21 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
         rawSpiritAbv: _parseDouble(_rawSpiritAbvController.text),
         barrelNotes: _barrelNotesController.text.trim(),
       );
+
+      // Если было выбрано несколько рецептов/этапов, привязываем остальные по порядку
+      if (_selectedRecipes.length > 1) {
+        final currentBatches = batchProvider.batches;
+        if (currentBatches.isNotEmpty) {
+          final createdBatch = currentBatches.first;
+          for (int i = 1; i < _selectedRecipes.length; i++) {
+            await batchProvider.attachRecipeToBatch(
+              batchId: createdBatch.id,
+              recipe: _selectedRecipes[i],
+              sequenceOrder: i + 1,
+            );
+          }
+        }
+      }
 
       if (mounted) {
         navigator.pop();

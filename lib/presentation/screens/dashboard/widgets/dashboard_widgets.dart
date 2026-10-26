@@ -19,7 +19,8 @@ class TotalCompletedVolumeCard extends StatefulWidget {
   });
 
   @override
-  State<TotalCompletedVolumeCard> createState() => _TotalCompletedVolumeCardState();
+  State<TotalCompletedVolumeCard> createState() =>
+      _TotalCompletedVolumeCardState();
 }
 
 class _TotalCompletedVolumeCardState extends State<TotalCompletedVolumeCard> {
@@ -63,7 +64,8 @@ class _TotalCompletedVolumeCardState extends State<TotalCompletedVolumeCard> {
           child: SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green),
+            child:
+                CircularProgressIndicator(strokeWidth: 2, color: Colors.green),
           ),
         ),
       );
@@ -74,21 +76,27 @@ class _TotalCompletedVolumeCardState extends State<TotalCompletedVolumeCard> {
     double totalLiters = 0.0;
 
     for (final b in widget.completedBatches) {
-      final baseSugarGramsPer100ml = b.finalSugarWithPriming ?? b.finalSugar ?? b.initialSugar;
+      final baseSugarGramsPer100ml =
+          b.finalSugarWithPriming ?? b.finalSugar ?? b.initialSugar;
       final baseSugarGramsPerLiter = baseSugarGramsPer100ml * 10.0;
 
       if (b.containers.isNotEmpty) {
         for (final c in b.containers) {
-          final totalSugarGramsPerLiter = baseSugarGramsPerLiter + c.sweetenerAmountGramsPerLiter;
-          final categoryName = _getSweetnessCategoryName(totalSugarGramsPerLiter);
-          
-          categoryVolumes[categoryName] = (categoryVolumes[categoryName] ?? 0.0) + c.totalVolumeLiters;
+          final totalSugarGramsPerLiter =
+              baseSugarGramsPerLiter + c.sweetenerAmountGramsPerLiter;
+          final categoryName =
+              _getSweetnessCategoryName(totalSugarGramsPerLiter);
+
+          categoryVolumes[categoryName] =
+              (categoryVolumes[categoryName] ?? 0.0) + c.totalVolumeLiters;
           totalLiters += c.totalVolumeLiters;
         }
       } else {
         final categoryName = _getSweetnessCategoryName(baseSugarGramsPerLiter);
-        final vol = b.totalBottledVolume > 0 ? b.totalBottledVolume : b.juiceVolume;
-        categoryVolumes[categoryName] = (categoryVolumes[categoryName] ?? 0.0) + vol;
+        final vol =
+            b.totalBottledVolume > 0 ? b.totalBottledVolume : b.juiceVolume;
+        categoryVolumes[categoryName] =
+            (categoryVolumes[categoryName] ?? 0.0) + vol;
         totalLiters += vol;
       }
     }
@@ -113,7 +121,8 @@ class _TotalCompletedVolumeCardState extends State<TotalCompletedVolumeCard> {
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
+                      Icon(Icons.check_circle_outline,
+                          color: Colors.green, size: 20),
                       SizedBox(width: 6),
                       Text(
                         'Готовый напиток',
@@ -200,9 +209,13 @@ class TotalInProgressVolumeCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '${volumeLiters.toStringAsFixed(1)} л',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.amber.shade900),
             ),
-            const Text('Объём в процессе', style: TextStyle(fontSize: 11, color: Colors.black87)),
+            const Text('Объём в процессе',
+                style: TextStyle(fontSize: 11, color: Colors.black87)),
           ],
         ),
       ),
@@ -234,7 +247,10 @@ class NearestStepCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   'Ближайший шаг',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange.shade900),
                 ),
               ],
             ),
@@ -242,7 +258,10 @@ class NearestStepCard extends StatelessWidget {
             if (nearestBatch != null) ...[
               Text(
                 nearestBatch!.name,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.black87),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -253,7 +272,8 @@ class NearestStepCard extends StatelessWidget {
                 style: const TextStyle(fontSize: 11, color: Colors.black87),
               ),
             ] else
-              const Text('Нет запланированных шагов', style: TextStyle(fontSize: 11, color: Colors.black54)),
+              const Text('Нет запланированных шагов',
+                  style: TextStyle(fontSize: 11, color: Colors.black54)),
           ],
         ),
       ),
@@ -266,7 +286,8 @@ class TypeDistributionCard extends StatelessWidget {
   final int ciderCount;
   final int calvadosCount;
 
-  const TypeDistributionCard({super.key, required this.ciderCount, required this.calvadosCount});
+  const TypeDistributionCard(
+      {super.key, required this.ciderCount, required this.calvadosCount});
 
   @override
   Widget build(BuildContext context) {
@@ -281,7 +302,8 @@ class TypeDistributionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Типы напитков', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            const Text('Типы напитков',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
@@ -296,8 +318,10 @@ class TypeDistributionCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('🍏 Сидр: $ciderCount', style: const TextStyle(fontSize: 10)),
-                Text('🥃 Кальвадос: $calvadosCount', style: const TextStyle(fontSize: 10)),
+                Text('🍏 Сидр: $ciderCount',
+                    style: const TextStyle(fontSize: 10)),
+                Text('🥃 Кальвадос: $calvadosCount',
+                    style: const TextStyle(fontSize: 10)),
               ],
             ),
           ],
@@ -323,13 +347,18 @@ class ActiveFermentationsCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.bubble_chart_outlined, color: Colors.purple, size: 28),
+            const Icon(Icons.bubble_chart_outlined,
+                color: Colors.purple, size: 28),
             const SizedBox(height: 4),
             Text(
               '$count',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.purple.shade900),
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.purple.shade900),
             ),
-            const Text('Активные брожения', style: TextStyle(fontSize: 11, color: Colors.black87)),
+            const Text('Активные брожения',
+                style: TextStyle(fontSize: 11, color: Colors.black87)),
           ],
         ),
       ),
@@ -353,7 +382,8 @@ class ActiveYeastsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeBatches = batches.where((b) => b.status != BatchStatus.archived).toList();
+    final activeBatches =
+        batches.where((b) => b.status != BatchStatus.archived).toList();
     final yeastProvider = context.watch<YeastProvider>();
 
     final Map<String, int> yeastUsageMap = {};
@@ -361,7 +391,8 @@ class ActiveYeastsCard extends StatelessWidget {
       if (batch.yeastId != null && batch.yeastId!.trim().isNotEmpty) {
         final yeastId = batch.yeastId!.trim();
         final matches = yeastProvider.yeasts.where((y) => y.id == yeastId);
-        final name = matches.isNotEmpty ? matches.first.name : 'Неизвестный штамм';
+        final name =
+            matches.isNotEmpty ? matches.first.name : 'Неизвестный штамм';
 
         yeastUsageMap[name] = (yeastUsageMap[name] ?? 0) + 1;
       }
@@ -378,7 +409,6 @@ class ActiveYeastsCard extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isCompactWidth = constraints.maxWidth < 170;
-            final isCompactHeight = constraints.maxHeight < 120;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -386,7 +416,8 @@ class ActiveYeastsCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.biotech_outlined, color: Colors.teal, size: 18),
+                    const Icon(Icons.biotech_outlined,
+                        color: Colors.teal, size: 18),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
@@ -499,8 +530,10 @@ class PackagingVolumeDistributionCard extends StatelessWidget {
             ? 'Прочая тара'
             : container.containerType;
 
-        packagingCounts[label] = (packagingCounts[label] ?? 0) + container.count;
-        packagingVolumes[label] = (packagingVolumes[label] ?? 0) + container.totalVolumeLiters;
+        packagingCounts[label] =
+            (packagingCounts[label] ?? 0) + container.count;
+        packagingVolumes[label] =
+            (packagingVolumes[label] ?? 0) + container.totalVolumeLiters;
         totalVolume += container.totalVolumeLiters;
       }
     }
@@ -625,7 +658,8 @@ class PackagingVolumeDistributionCard extends StatelessWidget {
     final lower = type.toLowerCase();
     if (lower.contains('кег')) return Icons.sports_bar;
     if (lower.contains('бутылк')) return Icons.wine_bar;
-    if (lower.contains('банка') || lower.contains('пэт')) return Icons.local_drink;
+    if (lower.contains('банка') || lower.contains('пэт'))
+      return Icons.local_drink;
     return Icons.takeout_dining;
   }
 }
@@ -656,9 +690,13 @@ class QuickCalculatorCard extends StatelessWidget {
               SizedBox(height: 4),
               Text(
                 'Калькулятор',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue),
               ),
-              Text('Быстрые расчеты', style: TextStyle(fontSize: 10, color: Colors.black87)),
+              Text('Быстрые расчеты',
+                  style: TextStyle(fontSize: 10, color: Colors.black87)),
             ],
           ),
         ),

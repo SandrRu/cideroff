@@ -40,8 +40,10 @@ class _RecipeListScreenState extends State<RecipeListScreen>
     final provider = context.watch<RecipeProvider>();
     final langCode = Localizations.localeOf(context).languageCode;
 
-    final ciderRecipes = provider.recipes.where((r) => !_isCalvadosRecipe(r)).toList();
-    final calvadosRecipes = provider.recipes.where((r) => _isCalvadosRecipe(r)).toList();
+    final ciderRecipes =
+        provider.recipes.where((r) => !_isCalvadosRecipe(r)).toList();
+    final calvadosRecipes =
+        provider.recipes.where((r) => _isCalvadosRecipe(r)).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -69,7 +71,8 @@ class _RecipeListScreenState extends State<RecipeListScreen>
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Рецепт "${recipe.getTitle(langCode)}" импортирован'),
+                    content: Text(
+                        'Рецепт "${recipe.getTitle(langCode)}" импортирован'),
                   ),
                 );
               }
@@ -134,7 +137,8 @@ class _RecipeListScreenState extends State<RecipeListScreen>
                 ),
                 if (!recipe.isCustom)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(4),

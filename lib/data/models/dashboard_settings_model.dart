@@ -34,14 +34,19 @@ class DashboardSettingsModel {
   }) {
     return DashboardSettingsModel(
       crossAxisCount: crossAxisCount ?? this.crossAxisCount,
-      showTotalCompletedVolume: showTotalCompletedVolume ?? this.showTotalCompletedVolume,
-      showTotalInProgressVolume: showTotalInProgressVolume ?? this.showTotalInProgressVolume,
+      showTotalCompletedVolume:
+          showTotalCompletedVolume ?? this.showTotalCompletedVolume,
+      showTotalInProgressVolume:
+          showTotalInProgressVolume ?? this.showTotalInProgressVolume,
       showNearestStep: showNearestStep ?? this.showNearestStep,
       showTypeDistribution: showTypeDistribution ?? this.showTypeDistribution,
-      showActiveFermentationCount: showActiveFermentationCount ?? this.showActiveFermentationCount,
+      showActiveFermentationCount:
+          showActiveFermentationCount ?? this.showActiveFermentationCount,
       showActiveYeasts: showActiveYeasts ?? this.showActiveYeasts,
-      showFinishedPackaging: showFinishedPackaging ?? this.showFinishedPackaging,
-      showQuickCalculatorCard: showQuickCalculatorCard ?? this.showQuickCalculatorCard,
+      showFinishedPackaging:
+          showFinishedPackaging ?? this.showFinishedPackaging,
+      showQuickCalculatorCard:
+          showQuickCalculatorCard ?? this.showQuickCalculatorCard,
     );
   }
 }
