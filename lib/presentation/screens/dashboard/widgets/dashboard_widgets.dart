@@ -410,9 +410,11 @@ class ActiveYeastsCard extends StatelessWidget {
           builder: (context, constraints) {
             final isCompactWidth = constraints.maxWidth < 170;
 
+                                    // mainAxisSize.min убран сознательно: ниже используются Expanded,
+            // а flex-дети и min-размер колонки несовместимы (нужна
+            // ограниченная высота и свободное место для распределения).
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
@@ -550,9 +552,10 @@ class PackagingVolumeDistributionCard extends StatelessWidget {
           builder: (context, constraints) {
             final isCompactWidth = constraints.maxWidth < 170;
 
+            // См. комментарий в ActiveYeastsCard: Expanded требует, чтобы у
+            // колонки было свободное место для распределения.
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
@@ -655,11 +658,16 @@ class PackagingVolumeDistributionCard extends StatelessWidget {
   }
 
   IconData _getIconForPackaging(String type) {
-    final lower = type.toLowerCase();
-    if (lower.contains('кег')) return Icons.sports_bar;
-    if (lower.contains('бутылк')) return Icons.wine_bar;
-    if (lower.contains('банка') || lower.contains('пэт'))
+        final lower = type.toLowerCase();
+    if (lower.contains('кег')) {
+      return Icons.sports_bar;
+    }
+    if (lower.contains('бутылк')) {
+      return Icons.wine_bar;
+    }
+    if (lower.contains('банка') || lower.contains('пэт')) {
       return Icons.local_drink;
+    }
     return Icons.takeout_dining;
   }
 }

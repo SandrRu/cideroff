@@ -366,28 +366,34 @@ class DatabaseService {
   // --- CRUD ДЛЯ ПАРТИЙ С ПОДДЕРЖКОЙ ПОДПАРТИЙ И МНОГОЧИСЛЕННЫХ РЕЦЕПТОВ ---
 
   Future<void> insertBatch(
-    Batch batch, {
-    List<BatchRecipeLink>? recipeLinks,
-    BatchHistory? history,
-    DatabaseExecutor? executor,
-  }) async {
-    if (executor != null) {
-      await _insertBatchRows(executor, batch, recipeLinks, history);
-      return;
+      Batch batch, {
+      List<BatchRecipeLink>? recipeLinks,
+      BatchHistory? history,
+      DatabaseExecutor? executor,
+      // При восстановлении бэкапа связи партия↔рецепт вставляются отдельно
+      // из секции batchRecipeLinks, поэтому неявную связь создавать нельзя.
+      bool createImplicitRecipeLink = true,
+    }) async {
+      if (executor != null) {
+        await _insertBatchRows(executor, batch, recipeLinks, history,
+            createImplicitRecipeLink: createImplicitRecipeLink);
+        return;
+      }
+
+      final db = await instance.database;
+      await db.transaction((txn) async {
+        await _insertBatchRows(txn, batch, recipeLinks, history,
+            createImplicitRecipeLink: createImplicitRecipeLink);
+      });
     }
 
-    final db = await instance.database;
-    await db.transaction((txn) async {
-      await _insertBatchRows(txn, batch, recipeLinks, history);
-    });
-  }
-
-  Future<void> _insertBatchRows(
-    DatabaseExecutor txn,
-    Batch batch,
-    List<BatchRecipeLink>? recipeLinks,
-    BatchHistory? history,
-  ) async {
+    Future<void> _insertBatchRows(
+      DatabaseExecutor txn,
+      Batch batch,
+      List<BatchRecipeLink>? recipeLinks,
+      BatchHistory? history, {
+      bool createImplicitRecipeLink = true,
+    }) async {
     await txn.insert('batches', batch.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
 
@@ -407,7 +413,7 @@ class DatabaseService {
         await txn.insert('batch_recipes', link.toJson(),
             conflictAlgorithm: ConflictAlgorithm.replace);
       }
-    } else if (batch.currentRecipeId != null) {
+    } else if (createImplicitRecipeLink && batch.currentRecipeId != null) {
       await txn.insert(
           'batch_recipes',
           {

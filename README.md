@@ -1,8 +1,12 @@
 # CiderOff 🍎⚙️
 
+**Версия: 1.2.0**
+
 **CiderOff** — кроссплатформенное мобильное и десктопное приложение (журнал и калькуляторы) для домашних сидроделов, крафтовых виноделов и дистилляторов. Написано на **Flutter / Dart** с использованием локальной базы данных **SQLite**.
 
-Приложение работает **100% офлайн**, не требует авторизации и гарантирует полную конфиденциальность технологических карт, рецептов и замеров.
+Приложение работает **офлайн**; облачная синхронизация включается по желанию пользователя. Технологические карты, рецепты и замеры хранятся локально и не передаются третьим лицам без явного действия пользователя.
+
+Поддерживаемые платформы: **Android, iOS, Windows, Linux, macOS**.
 
 ---
 
@@ -29,7 +33,19 @@
 * **Дашборд:** Виджеты объемов в работе/готового напитка, ближайших технологических шагов, распределения по дрожжам и видам тары.
 * **Погребок:** Сводный учет готовых бутылок, группировка по категориям сладости (сухой, полусухой, полусладкий, сладкий) и срокам выдержки.
 
-### 🔔 5. Напоминания и Локализация
+### 📚 5. Справочники и рецепты
+* Встроенные и пользовательские **рецепты** с шагами и мультиязычными описаниями.
+* Справочники **дрожжей**, **типов напитков**, **подсластителей** с возможностью добавления собственных записей.
+* Импорт/экспорт отдельных рецептов в формат `.ciderrecipe`.
+
+### ☁️ 6. Резервное копирование и синхронизация
+* **Локальный бэкап:** экспорт/импорт полного архива данных в `.ciderbak` (партии, история, тара, рецепты, справочники).
+* **Google Drive:** выгрузка и восстановление авто-бэкапа.
+  * Android/iOS — через `google_sign_in` (7.x).
+  * Windows/Linux/macOS — через OAuth 2.0 loopback-поток (`googleapis_auth`) с сохранением токена между запусками.
+  * Файл хранится в приватной папке приложения (`appDataFolder`); восстановление заменяет текущие пользовательские данные.
+
+### 🔔 7. Напоминания и Локализация
 * **Push-уведомления:** Точные напоминания о наступлении следующего этапа (снятие с осадка, замер плотности, розлив) с помощью `flutter_localizations` и `flutter_local_notifications`.
 * **Мультиязычность:** Встроенная поддержка русского и английского языков (`ru`, `en`).
 
@@ -37,13 +53,13 @@
 
 ## 🛠 Технологический стек
 
-* **Фреймворк:** [Flutter](https://flutter.dev/) (Dart)
-* **Архитектура & State Management:** `Provider`
-* **База данных:** `sqflite` (Android/iOS) + `sqflite_common_ffi` (Windows/Linux/macOS)
-* **Графика и Чарт:** `fl_chart`
-* **Печать & PDF:** `pdf`, `printing`
-* **Уведомления:** `flutter_local_notifications`, `timezone`
-* **Синхронизация & Бекап:** Встроенный импорт/экспорт проектов в `.ciderbak` / `.ciderrecipe` и интеграция с Google Drive.
+* **Фреймворк:** [Flutter](https://flutter.dev/) (Dart) — SDK `>=3.0.0 <4.0.0`
+* **Архитектура & State Management:** `provider` ^6.1.2
+* **База данных:** `sqflite` + `sqflite_common_ffi` (Windows/Linux/macOS) + `sqlite3`
+* **Графика и Чарты:** `fl_chart` ^1.2.0
+* **Печать & PDF:** `pdf` ^3.13.0, `printing` ^5.15.0, `flutter_svg`
+* **Уведомления:** `flutter_local_notifications` ^22.3.0, `timezone`, `flutter_timezone`
+* **Синхронизация & Бэкап:** `google_sign_in` ^7.2.0, `googleapis` ^17.0.0, `googleapis_auth`, `extension_google_sign_in_as_googleapis_auth`; обмен файлами через `share_plus`, `file_picker`.
 
 ---
 
@@ -51,12 +67,54 @@
 
 ```text
 lib/
-├── core/               # Утилиты расчета гидрометрии, объемов и сидирование тестовых данных
-│   └── utils/
-├── data/               # Источники данных, SQLite базы и модели
+├── core/               # Утилиты: гидрометрия, расчет объемов, дата розлива,
+│   └── utils/          # сидирование тестовых данных
+├── data/               # Источники данных, SQLite и модели
 │   ├── datasources/    # DatabaseService
-│   └── models/         # Модели Batch, Recipe, Yeast, Container, Label, DrinkType
-├── presentation/       # UI слой
-│   ├── providers/      # AppSettings, Batch, Recipe, Yeast провайдеры
-│   └── screens/        # Экраны (Dashboard, Main/Batches, Cellar, Calculator, Settings, Labels, History)
-└── services/           # Сервисы PDF-печати, уведомлений и экспорт/импорта
+│   └── models/         # Batch, BatchContainer, BatchHistory, Recipe, Yeast,
+│                       # LabelTemplate, DrinkType, SweetenerType,
+│                       # BatchRecipeLink, CardSettings, DashboardSettings
+├── presentation/       # UI-слой
+│   ├── providers/      # AppSettings, Batch, Recipe, Yeast, Sweetener
+│   └── screens/        # Dashboard, Main/MainShell, Cellar, Calculator,
+│                       # Settings, Batch, Label, History, Recipe, Yeast
+└── services/           # PDF-печать, уведомления, экспорт/импорт,
+                        # Google Drive sync + desktop-авторизация
+```
+
+---
+
+## 🚀 Сборка и запуск
+
+```bash
+flutter pub get
+
+# Отладочный запуск (с демо-данными)
+flutter run
+
+# Релизная сборка с ключами Google (пример для Windows)
+flutter build windows \
+  --dart-define=WINDOWS_CLIENT_ID=<desktop-client-id> \
+  --dart-define=WINDOWS_CLIENT_SECRET=<desktop-client-secret> \
+  --dart-define=WEB_CLIENT_ID=<web-client-id>
+```
+
+### Ключи Google Drive (--dart-define)
+
+| Переменная | Назначение |
+| --- | --- |
+| `WINDOWS_CLIENT_ID` | OAuth-клиент типа **Desktop app** (Windows/Linux/macOS) |
+| `WINDOWS_CLIENT_SECRET` | Секрет desktop-клиента (опционально) |
+| `WEB_CLIENT_ID` | Web-клиент, он же `serverClientId` для мобильных платформ |
+| `IOS_CLIENT_ID` | Опционально, OAuth-клиент для iOS/macOS |
+
+> В Google Cloud Console должен быть включён **Google Drive API**. Файл бэкапа хранится в `appDataFolder` (область `drive.appdata`).
+
+---
+
+## 📦 Форматы файлов
+
+| Расширение | Содержимое |
+| --- | --- |
+| `.ciderbak` | Полный бэкап: партии, история, тара, рецепты, дрожжи, типы напитков, подсластители, макеты |
+| `.ciderrecipe` | Один рецепт для обмена между устройствами |

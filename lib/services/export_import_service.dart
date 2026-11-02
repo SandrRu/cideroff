@@ -40,6 +40,13 @@ class _BackupPayload {
 class ExportImportService {
   final DatabaseService _db = DatabaseService.instance;
 
+  /// Текущая версия формата бэкапа (поле `version` в JSON).
+  static const int backupFormatVersion = 3;
+
+  /// Максимальная версия, которую умеет читать текущая сборка.
+  /// Файлы с большей версией считаются несовместимыми.
+  static const int maxSupportedBackupVersion = 3;
+
   // --- РЕЗЕРВНОЕ КОПИРОВАНИЕ И ВОССТАНОВЛЕНИЕ (БЭКАП) ---
 
   /// Генерация полных данных приложения в формат JSON и экспорт
@@ -113,23 +120,23 @@ class ExportImportService {
     final List<Map<String, dynamic>> allRecipeLinks = [];
     final List<Batch> batches = [];
 
-    for (var batch in rawBatches) {
-      // 1. Получаем историю
+        for (final batch in rawBatches) {
+      // getAllBatches() уже подгрузил тару (batch.containers), поэтому
+      // повторный запрос getContainersForBatch здесь не нужен.
+      batches.add(batch);
+
+      // 1. Получаем историю партии
       final historyList = await _db.getHistoryForBatch(batch.id);
       allHistory.addAll(historyList.map((h) => h.toJson()));
 
       // 2. Получаем связи партии с рецептами
       final recipeLinks = await _db.getRecipeLinksForBatch(batch.id);
       allRecipeLinks.addAll(recipeLinks.map((link) => link.toJson()));
-
-      // 3. Подгружаем подпартии (контейнеры) для каждой партии
-      final containers = await _db.getContainersForBatch(batch.id);
-      batches.add(batch.copyWith(containers: containers));
     }
 
-    final backupData = {
+        final backupData = {
       'app': 'CiderOff',
-      'version': 3,
+      'version': backupFormatVersion,
       'exportedAt': DateTime.now().toIso8601String(),
       'batches': batches.map((b) => b.toJson()).toList(),
       'batchRecipeLinks': allRecipeLinks,
@@ -201,9 +208,15 @@ class ExportImportService {
         await _db.insertLabelTemplate(template, executor: txn);
       }
       for (final batch in payload.batches) {
-        // Тара партии вставляется вместе с самой партией.
-        await _db.insertBatch(batch, executor: txn);
-      }
+              // Тара партии вставляется вместе с самой партией.
+              // Неявную связь партия↔рецепт не создаём: связи восстанавливаются
+              // отдельно из секции batchRecipeLinks (иначе возможны дубли-фантомы).
+              await _db.insertBatch(
+                batch,
+                executor: txn,
+                createImplicitRecipeLink: false,
+              );
+            }
       for (final link in payload.recipeLinks) {
         await _db.linkRecipeToBatch(
           batchId: link.batchId,
@@ -234,14 +247,38 @@ class ExportImportService {
       for (final entry in decoded.entries) entry.key.toString(): entry.value,
     };
 
-    if (data['app'] != 'CiderOff') {
+        if (data['app'] != 'CiderOff') {
       throw const FormatException('Неверный формат файла резервной копии');
     }
 
-    List<T> parseSection<T>(
-        String key, T Function(Map<String, dynamic>) fromJson) {
+    // Проверка версии формата. Отсутствие версии трактуем как legacy-бэкап,
+    // но файл из более новой (несовместимой) версии приложения отклоняем.
+    final rawVersion = data['version'];
+    if (rawVersion != null) {
+      if (rawVersion is! int) {
+        throw const FormatException('Некорректная версия резервной копии');
+      }
+      if (rawVersion > maxSupportedBackupVersion) {
+        throw FormatException(
+            'Файл создан более новой версией приложения '
+            '(версия $rawVersion, поддерживается до $maxSupportedBackupVersion). '
+            'Обновите приложение.');
+      }
+    }
+
+        List<T> parseSection<T>(
+      String key,
+      T Function(Map<String, dynamic>) fromJson, {
+      bool required = false,
+    }) {
       final raw = data[key];
-      if (raw == null) return <T>[];
+      if (raw == null) {
+        if (required) {
+          throw FormatException(
+              'В резервной копии отсутствует обязательная секция "$key"');
+        }
+        return <T>[];
+      }
 
       if (raw is! List) {
         throw FormatException('Некорректная секция "$key" в резервной копии');
@@ -259,15 +296,21 @@ class ExportImportService {
       return items;
     }
 
-        return _BackupPayload(
-      yeasts: parseSection('yeasts', Yeast.fromJson),
-      drinkTypes: parseSection('drinkTypes', DrinkType.fromJson),
-      sweeteners: parseSection('sweetenerTypes', SweetenerType.fromJson),
-      recipes: parseSection('recipes', Recipe.fromJson),
-      templates: parseSection('templates', LabelTemplate.fromJson),
-      batches: parseSection('batches', Batch.fromJson),
-      recipeLinks: parseSection('batchRecipeLinks', BatchRecipeLink.fromJson),
-      history: parseSection('history', BatchHistory.fromJson),
+            // Критические секции обязательны: без них импорт с replaceExisting
+    // молча удалил бы все данные пользователя и вставил пустоту.
+    return _BackupPayload(
+      yeasts: parseSection('yeasts', Yeast.fromJson, required: true),
+      drinkTypes:
+          parseSection('drinkTypes', DrinkType.fromJson, required: true),
+      sweeteners: parseSection('sweetenerTypes', SweetenerType.fromJson,
+          required: true),
+      recipes: parseSection('recipes', Recipe.fromJson, required: true),
+      templates:
+          parseSection('templates', LabelTemplate.fromJson, required: true),
+      batches: parseSection('batches', Batch.fromJson, required: true),
+      recipeLinks: parseSection('batchRecipeLinks', BatchRecipeLink.fromJson,
+          required: true),
+      history: parseSection('history', BatchHistory.fromJson, required: true),
     );
   }
 

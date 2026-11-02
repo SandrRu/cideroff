@@ -8,6 +8,7 @@ import 'package:cider_off/presentation/providers/recipe_provider.dart';
 import 'package:cider_off/presentation/providers/sweetener_provider.dart';
 import 'package:cider_off/presentation/providers/yeast_provider.dart';
 import 'package:cider_off/presentation/screens/main/main_shell_screen.dart';
+import 'package:cider_off/services/app_logger.dart';
 import 'package:cider_off/services/notification_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -16,18 +17,23 @@ import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  final logger = AppLogger.instance;
+
   // Любая ошибка должна быть залогирована, а не оставлять белый экран.
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
+      // Логгер поднимаем первым, чтобы поймать ошибки инициализации.
+      await logger.init();
+
       FlutterError.onError = (FlutterErrorDetails details) {
         FlutterError.presentError(details);
-        debugPrint('Flutter error: ${details.exceptionAsString()}');
+        logger.error('Flutter error: ${details.exceptionAsString()}', details.exception, details.stack);
       };
 
       PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-        debugPrint('Необработанная ошибка платформы: $error\n$stack');
+        logger.error('Необработанная ошибка платформы', error, stack);
         return true;
       };
 
@@ -46,7 +52,7 @@ void main() {
       try {
         await NotificationService.instance.init();
       } catch (error, stack) {
-        debugPrint('Ошибка инициализации уведомлений: $error\n$stack');
+        logger.error('Ошибка инициализации уведомлений', error, stack);
       }
 
       try {
@@ -54,12 +60,13 @@ void main() {
         // демонстрационные партии — только в debug-сборке.
         await TestDataSeeder.seedDatabase(includeDemoData: kDebugMode);
       } catch (error, stack) {
-        debugPrint('Ошибка подготовки данных приложения: $error\n$stack');
+        logger.error('Ошибка подготовки данных приложения', error, stack);
       }
 
+      logger.info('Лог-файл: ${logger.logFilePath}');
       runApp(const CiderOffApp());
     },
-    (error, stack) => debugPrint('Необработанная ошибка: $error\n$stack'),
+    (error, stack) => logger.error('Необработанная ошибка', error, stack),
   );
 }
 

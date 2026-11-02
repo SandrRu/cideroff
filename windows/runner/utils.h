@@ -8,6 +8,13 @@
 // it for both the runner and the Flutter library.
 void CreateAndAttachConsole();
 
+// Redirects the process stdout/stderr through a pipe so every message is
+// written BOTH to the attached console (if any) and to a log file placed next
+// to the executable. This captures native Flutter engine output that never
+// reaches Dart (e.g. accessibility_bridge AXTree errors).
+// Safe to call once; subsequent calls are no-ops.
+void RedirectEngineOutputToConsoleAndFile();
+
 // Takes a null-terminated wchar_t* encoded in UTF-16 and returns a std::string
 // encoded in UTF-8. Returns an empty std::string on failure.
 std::string Utf8FromUtf16(const wchar_t* utf16_string);
